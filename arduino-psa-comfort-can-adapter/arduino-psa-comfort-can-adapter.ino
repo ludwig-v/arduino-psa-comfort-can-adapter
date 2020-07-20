@@ -629,7 +629,9 @@ void loop() {
             Serial.println();
           }
         }
-      } else if (id == 608 && len == 8) {
+      } else if (id == 865) { // 0x361 - Personalization menu
+        // Work in progress, do not forward possible old personalization settings from CAN2004 
+      } else if (id == 608 && len == 8) { // 0x260
         // Do not forward original message, it has been completely redesigned on CAN2010
         // Also forge missing messages from CAN2004
 
