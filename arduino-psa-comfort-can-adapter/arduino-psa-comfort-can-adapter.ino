@@ -13,11 +13,11 @@
 //  Configuration  //
 /////////////////////
 
-const int CS_PIN_CAN0 = 10;
-const int CS_PIN_CAN1 = 9;
-const long SERIAL_SPEED = 115200;
-const byte CAN_SPEED = CAN_125KBPS; // Entertainment CAN bus - Low speed
-const byte CAN_FREQ = MCP_16MHZ; // Switch to 8MHZ if you have a 8Mhz module
+#define CS_PIN_CAN0 10
+#define CS_PIN_CAN1 9
+#define SERIAL_SPEED 115200
+#define CAN_SPEED CAN_125KBPS // Entertainment CAN bus - Low speed
+#define CAN_FREQ MCP_16MHZ // Switch to 8MHZ if you have a 8Mhz module
 
 ////////////////////
 // Initialization //
