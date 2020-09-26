@@ -541,8 +541,24 @@ void loop() {
         }
 
         CAN1.sendMessage( & canMsgRcv);
-      } else if (id == 296 && len == 8) {
-        canMsgSnd.data[0] = canMsgRcv.data[0];
+      } else if (id == 360 && len == 8) { // Instrument Panel
+        canMsgSnd.data[0] = canMsgRcv.data[0]; 
+        canMsgSnd.data[1] = canMsgRcv.data[1]; 
+        canMsgSnd.data[2] = canMsgRcv.data[5]; // Investigation to do
+        canMsgSnd.data[3] = canMsgRcv.data[3]; 
+        canMsgSnd.data[4] = canMsgRcv.data[5]; // Investigation to do
+        canMsgSnd.data[5] = canMsgRcv.data[5]; // Investigation to do
+        canMsgSnd.data[6] = canMsgRcv.data[6];
+        canMsgSnd.data[7] = canMsgRcv.data[7];
+        canMsgSnd.can_id = 0x168;
+        canMsgSnd.can_dlc = 8;
+
+        CAN1.sendMessage( & canMsgSnd);
+        if (Send_CAN2010_ForgedMessages) { // Will generate some light issues on the instrument panel
+          CAN0.sendMessage( & canMsgSnd);
+        }
+      } else if (id == 296 && len == 8) { // Instrument Panel
+        canMsgSnd.data[0] = canMsgRcv.data[4]; // Main driving lights
         canMsgSnd.data[1] = canMsgRcv.data[6];
         canMsgSnd.data[2] = canMsgRcv.data[7];
 
@@ -553,10 +569,10 @@ void loop() {
           canMsgSnd.data[3] = 0x00;
         }
 
-        canMsgSnd.data[4] = canMsgRcv.data[4];
-        canMsgSnd.data[5] = canMsgRcv.data[5];
-        canMsgSnd.data[6] = canMsgRcv.data[6];
-        canMsgSnd.data[7] = canMsgRcv.data[7];
+        canMsgSnd.data[4] = 0x00; // ESP - Investigation to do
+        canMsgSnd.data[5] = 0x00; // Low Fuel - Investigation to do
+        canMsgSnd.data[6] = 0x04;
+        canMsgSnd.data[7] = 0x00;
         canMsgSnd.can_id = 0x128;
         canMsgSnd.can_dlc = 8;
 
@@ -647,12 +663,12 @@ void loop() {
           canMsgSnd.data[1] = canMsgSnd.data[1] + 128;
         }
 
-        // I still have some investigation work to do here, it is the settings of interior ambience, and so on
+        // Vehicle Menu settings on NAC/RCC: Investigation to do
         // **************************
-        canMsgSnd.data[2] = 0x97;
-        canMsgSnd.data[3] = 0x9B;
-        canMsgSnd.data[4] = 0xE0;
-        canMsgSnd.data[5] = 0xD0;
+        canMsgSnd.data[2] = 0x00;
+        canMsgSnd.data[3] = 0x00;
+        canMsgSnd.data[4] = 0x00;
+        canMsgSnd.data[5] = 0x00;
         canMsgSnd.data[6] = 0x00;
         // **************************
 
