@@ -41,7 +41,8 @@ bool mpgMi = false;
 bool kmL = false; // km/L statistics instead of L/100
 bool fixedBrightness = false; // Force Brightness value in case the calibration does not match your brightness value range
 bool noFMUX = false; // If you don't have any useful button on the main panel, turn the SRC button on steering wheel commands into MENU - only works for CAN2010 SMEG / NAC -
-byte languageID = 0; // Default is FR: 0 - EN: 1 / DE: 2 / ES: 3 / IT: 4 / PT: 5 / NL: 6 / BR: 9 / TR: 12
+byte languageID = 0; // Default is FR: 0 - EN: 1 / DE: 2 / ES: 3 / IT: 4 / PT: 5 / NL: 6 / BR: 9 / TR: 12 / RU: 14
+bool listenCAN2004Language = false; // Switch language on CAN2010 devices if changed on supported CAN2004 devices, default: no
 byte Time_day = 1; // Default day if the RTC module is not configured
 byte Time_month = 1; // Default month if the RTC module is not configured
 int Time_year = 2020; // Default year if the RTC module is not configured
@@ -236,7 +237,7 @@ void loop() {
       CAN1.sendMessage( & canMsgRcv);
     } else if (!debugCAN1) {
       if (id == 54 && len == 8) { // Economy Mode detection
-        tmpVal = (canMsgRcv.data[2] & 0xFF);
+        tmpVal = canMsgRcv.data[2];
         if (tmpVal >= 128) {
           if (!EconomyMode && SerialEnabled) {
             Serial.println("Economy mode ON");
@@ -251,7 +252,7 @@ void loop() {
           EconomyMode = false;
         }
 
-        tmpVal = (canMsgRcv.data[3] & 0xFF);
+        tmpVal = canMsgRcv.data[3];
 
         // Fix brightness when car lights are ON - Brightness headup panel "20" > "2F" (32 > 47) - Depends on your car
         if (fixedBrightness && tmpVal >= 32) {
@@ -268,7 +269,7 @@ void loop() {
       } else if (id == 543 && len == 3 && carType == 0 && noFMUX) { // 0x21F Steering wheel commands - Generic
         // Replace SRC by MENU (Valid for 208, C-Elysee calibrations for example)
 
-        tmpVal = (canMsgRcv.data[0] & 0xFF);
+        tmpVal = canMsgRcv.data[0];
 
         if (tmpVal == 2) {
           canMsgSnd.data[0] = 0x80; // MENU button
@@ -302,7 +303,7 @@ void loop() {
         // Replace RD45 commands (Valid for C4 II calibration for example)
         carType = 1;
 
-        tmpVal = (canMsgRcv.data[1] & 0xFF);
+        tmpVal = canMsgRcv.data[1];
 
         if (tmpVal == 8) { // MENU button pushed > MUSIC
           canMsgSnd.data[0] = 0x00;
@@ -360,8 +361,8 @@ void loop() {
           CAN0.sendMessage( & canMsgSnd);
         }
       } else if (id == 464 && len == 7 && EngineRunning) { // No fan activated if the engine is not ON on old models
-        LeftTemp = (canMsgRcv.data[5] & 0xFF);
-        RightTemp = (canMsgRcv.data[6] & 0xFF);
+        LeftTemp = canMsgRcv.data[5];
+        RightTemp = canMsgRcv.data[6];
         if (LeftTemp == RightTemp) { // No other way to detect MONO mode
           Mono = true;
           LeftTemp = LeftTemp + 64;
@@ -371,7 +372,7 @@ void loop() {
 
         FanOff = false;
         // Fan Speed BSI_2010 = "41" (Off) > "49" (Full speed)
-        tmpVal = (canMsgRcv.data[2] & 0xFF);
+        tmpVal = canMsgRcv.data[2];
         if (tmpVal == 15) {
           FanOff = true;
           FanSpeed = 0x41;
@@ -380,7 +381,7 @@ void loop() {
         }
 
         // Position Fan
-        tmpVal = (canMsgRcv.data[3] & 0xFF);
+        tmpVal = canMsgRcv.data[3];
 
         if (tmpVal == 0x40) {
           FootAerator = false;
@@ -420,7 +421,7 @@ void loop() {
           CentralAerator = false;
         }
 
-        tmpVal = (canMsgRcv.data[4] & 0xFF);
+        tmpVal = canMsgRcv.data[4];
         if (tmpVal == 0x10) {
           DeMist = true;
           AirRecycle = false;
@@ -433,7 +434,7 @@ void loop() {
         AutoFan = false;
         DeMist = false;
 
-        tmpVal = (canMsgRcv.data[0] & 0xFF);
+        tmpVal = canMsgRcv.data[0];
         if (tmpVal == 0x11) {
           DeMist = true;
           AirConditioningON = true;
@@ -514,7 +515,7 @@ void loop() {
           CAN0.sendMessage( & canMsgSnd);
         }
       } else if (id == 246 && len == 8) {
-        tmpVal = (canMsgRcv.data[0] & 0xFF);
+        tmpVal = canMsgRcv.data[0];
         if (tmpVal > 128) {
           if (!Ignition && SerialEnabled) {
             Serial.println("Ignition ON");
@@ -529,7 +530,7 @@ void loop() {
           Ignition = false;
         }
 
-        tmpVal = ceil((canMsgRcv.data[5] & 0xFF) / 2.0) - 40; // Temperatures can be negative but we only have 0 > 255, the new range is starting from -40°C
+        tmpVal = ceil(canMsgRcv.data[5] / 2.0) - 40; // Temperatures can be negative but we only have 0 > 255, the new range is starting from -40°C
         if (Temperature != tmpVal) {
           Temperature = tmpVal;
 
@@ -562,7 +563,7 @@ void loop() {
         canMsgSnd.data[1] = canMsgRcv.data[6];
         canMsgSnd.data[2] = canMsgRcv.data[7];
 
-        tmpVal = (canMsgRcv.data[0] & 0xFF);
+        tmpVal = canMsgRcv.data[0];
         if (tmpVal == 96) { // Handbrake
           canMsgSnd.data[3] = 0x02;
         } else {
@@ -592,12 +593,12 @@ void loop() {
         if (SerialEnabled && !MaintenanceDisplayed) {
           Serial.print("Next maintenance in: ");
           if (canMsgRcv.data[3] != 0xFF && canMsgRcv.data[4] != 0xFF) {
-            tmpVal = ((canMsgRcv.data[3] & 0xFF) * 5120) + ((canMsgRcv.data[4] & 0xFF) * 20);
+            tmpVal = (canMsgRcv.data[3] * 5120) + (canMsgRcv.data[4] * 20);
             Serial.print(tmpVal);
             Serial.println(" km");
           }
           if (canMsgRcv.data[5] != 0xFF && canMsgRcv.data[6] != 0xFF) {
-            tmpVal = ((canMsgRcv.data[5] & 0xFF) * 255) + (canMsgRcv.data[6] & 0xFF);
+            tmpVal = (canMsgRcv.data[5] * 255) + canMsgRcv.data[6];
             Serial.print(tmpVal);
             Serial.println(" days");
           }
@@ -625,8 +626,8 @@ void loop() {
         if (Send_CAN2010_ForgedMessages) {
           CAN0.sendMessage( & canMsgSnd);
         }
-      } else if (id == 727 && len == 5) { // Headup Panel / Matrix CAN2004
-        tmpVal = (canMsgRcv.data[0] & 0xFF);
+      } else if (id == 727 && len == 5 && listenCAN2004Language) { // Headup Panel / Matrix CAN2004
+        tmpVal = canMsgRcv.data[0];
 
         if (languageID_HeadupPanel != tmpVal) {
           languageID_HeadupPanel = tmpVal;
@@ -791,11 +792,11 @@ void loop() {
       CAN0.sendMessage( & canMsgRcv);
     } else if (!debugCAN0) {
       if (id == 923 && len == 5) {
-        Time_year = (canMsgRcv.data[0] & 0xFF) + 1872; // Year would not fit inside one byte (0 > 255), add 1872 and you get this new range (1872 > 2127)
-        Time_month = (canMsgRcv.data[1] & 0xFF);
-        Time_day = (canMsgRcv.data[2] & 0xFF);
-        Time_hour = (canMsgRcv.data[3] & 0xFF);
-        Time_minute = (canMsgRcv.data[4] & 0xFF);
+        Time_year = canMsgRcv.data[0] + 1872; // Year would not fit inside one byte (0 > 255), add 1872 and you get this new range (1872 > 2127)
+        Time_month = canMsgRcv.data[1];
+        Time_day = canMsgRcv.data[2];
+        Time_hour = canMsgRcv.data[3];
+        Time_minute = canMsgRcv.data[4];
 
         setTime(Time_hour, Time_minute, 0, Time_day, Time_month, Time_year);
         RTC.set(now()); // Set the time on the RTC module too
@@ -827,7 +828,7 @@ void loop() {
           Serial.println();
         }
       } else if (id == 347 && len == 8) {
-        tmpVal = (canMsgRcv.data[0] & 0xFF);
+        tmpVal = canMsgRcv.data[0];
         if (tmpVal >= 128) {
           languageAndUnitNum = tmpVal;
           EEPROM.update(0, languageAndUnitNum);
@@ -838,7 +839,7 @@ void loop() {
             Serial.println();
           }
 
-          tmpVal = (canMsgRcv.data[1] & 0xFF);
+          tmpVal = canMsgRcv.data[1];
           if (tmpVal >= 128) {
             mpgMi = true;
             EEPROM.update(4, 1);
@@ -868,7 +869,7 @@ void loop() {
           }
         } else {
           tmpVal = ceil(tmpVal / 4.0);
-          if ((canMsgRcv.data[1] & 0xFF) >= 128) {
+          if (canMsgRcv.data[1] >= 128) {
             tmpVal--;
           }
           languageID = tmpVal;
@@ -883,7 +884,7 @@ void loop() {
         }
       } else if (id == 485 && len == 7) {
         // Ambience mapping
-        tmpVal = (canMsgRcv.data[5] & 0xFF);
+        tmpVal = canMsgRcv.data[5];
         if (tmpVal == 0x00) { // User
           canMsgRcv.data[6] = 0x40;
         } else if (tmpVal == 0x08) { // Classical
@@ -901,7 +902,7 @@ void loop() {
         }
 
         // Loudness / Volume linked to speed
-        tmpVal = (canMsgRcv.data[4] & 0xFF);
+        tmpVal = canMsgRcv.data[4];
         if (tmpVal == 0x10) { // Loudness / not linked to speed
           canMsgRcv.data[5] = 0x40;
         } else if (tmpVal == 0x14) { // Loudness / Volume linked to speed
@@ -917,25 +918,25 @@ void loop() {
         // Bass
         // CAN2004 Telematic Range: (-9) "54" > (-7) "57" > ... > "72" (+9) ("63" = 0)
         // CAN2010 Telematic Range: "32" > "88" ("60" = 0)
-        tmpVal = (canMsgRcv.data[2] & 0xFF);
+        tmpVal = canMsgRcv.data[2];
         canMsgRcv.data[2] = ((tmpVal - 32) / 4) + 57; // Converted value
 
         // Treble
         // CAN2004 Telematic Range: (-9) "54" > (-7) "57" > ... > "72" (+9) ("63" = 0)
         // CAN2010 Telematic Range: "32" > "88" ("60" = 0)
-        tmpVal = (canMsgRcv.data[3] & 0xFF);
+        tmpVal = canMsgRcv.data[3];
         canMsgRcv.data[4] = ((tmpVal - 32) / 4) + 57; // Converted value on position 4 (while it's on 3 on a old amplifier)
 
         // Balance - Left / Right
         // CAN2004 Telematic Range: (-9) "54" > (-7) "57" > ... > "72" (+9) ("63" = 0)
         // CAN2010 Telematic Range: "32" > "88" ("60" = 0)
-        tmpVal = (canMsgRcv.data[1] & 0xFF);
+        tmpVal = canMsgRcv.data[1];
         canMsgRcv.data[1] = ((tmpVal - 32) / 4) + 57; // Converted value
 
         // Balance - Front / Back
         // CAN2004 Telematic Range: (-9) "54" > (-7) "57" > ... > "72" (+9) ("63" = 0)
         // CAN2010 Telematic Range: "32" > "88" ("60" = 0)
-        tmpVal = (canMsgRcv.data[0] & 0xFF);
+        tmpVal = canMsgRcv.data[0];
         canMsgRcv.data[0] = ((tmpVal - 32) / 4) + 57; // Converted value
 
         // Mediums ?
