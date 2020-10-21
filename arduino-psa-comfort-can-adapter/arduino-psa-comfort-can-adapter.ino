@@ -42,7 +42,7 @@ bool kmL = false; // km/L statistics instead of L/100
 bool fixedBrightness = false; // Force Brightness value in case the calibration does not match your brightness value range
 bool noFMUX = false; // If you don't have any useful button on the main panel, turn the SRC button on steering wheel commands into MENU - only works for CAN2010 SMEG / NAC -
 byte languageID = 0; // Default is FR: 0 - EN: 1 / DE: 2 / ES: 3 / IT: 4 / PT: 5 / NL: 6 / BR: 9 / TR: 12 / RU: 14
-bool listenCAN2004Language = false; // Switch language on CAN2010 devices if changed on supported CAN2004 devices, default: no
+bool listenCAN2004Language = true; // Switch language on CAN2010 devices if changed on supported CAN2004 devices, default: yes
 byte Time_day = 1; // Default day if the RTC module is not configured
 byte Time_month = 1; // Default month if the RTC module is not configured
 int Time_year = 2020; // Default year if the RTC module is not configured
@@ -56,7 +56,7 @@ bool SerialEnabled = false;
 int Temperature = 0;
 bool EconomyMode = false;
 bool EngineRunning = false;
-byte languageID_HeadupPanel = 0;
+byte languageID_CAN2004 = 0;
 bool AirConditioningON = false;
 byte FanSpeed = 0;
 bool FanOff = false;
@@ -111,7 +111,7 @@ void setup() {
 
   tmpVal = EEPROM.read(1);
   if (tmpVal <= 32) {
-    languageID_HeadupPanel = tmpVal;
+    languageID_CAN2004 = tmpVal;
   }
 
   tmpVal = EEPROM.read(2);
@@ -254,7 +254,7 @@ void loop() {
 
         tmpVal = canMsgRcv.data[3];
 
-        // Fix brightness when car lights are ON - Brightness headup panel "20" > "2F" (32 > 47) - Depends on your car
+        // Fix brightness when car lights are ON - Brightness Instrument Panel "20" > "2F" (32 > 47) - Depends on your car
         if (fixedBrightness && tmpVal >= 32) {
           canMsgRcv.data[3] = 0x28; // Set fixed value to avoid low brightness due to incorrect CAN2010 Telematic calibration
         }
@@ -626,25 +626,33 @@ void loop() {
         if (Send_CAN2010_ForgedMessages) {
           CAN0.sendMessage( & canMsgSnd);
         }
-      } else if (id == 727 && len == 5 && listenCAN2004Language) { // Headup Panel / Matrix CAN2004
+      } else if (id == 727 && len == 5 && listenCAN2004Language) { // CAN2004 Matrix
         tmpVal = canMsgRcv.data[0];
+        if (tmpVal > 32) {
+          kmL = true;
+          tmpVal = tmpVal - 32;
+        }
 
-        if (languageID_HeadupPanel != tmpVal) {
-          languageID_HeadupPanel = tmpVal;
-          EEPROM.update(1, languageID_HeadupPanel);
+        if (tmpVal <= 32 && languageID_CAN2004 != tmpVal) {
+          languageID_CAN2004 = tmpVal;
+          EEPROM.update(1, languageID_CAN2004);
 
           // Change language and unit on ID 608 for CAN2010 Telematic language change
-          languageAndUnitNum = (languageID_HeadupPanel * 4) + 128;
+          languageAndUnitNum = (languageID_CAN2004 * 4) + 128;
           if (kmL) {
             languageAndUnitNum = languageAndUnitNum + 1;
           }
           EEPROM.update(0, languageAndUnitNum);
 
           if (SerialEnabled) {
-            Serial.print("Headup Panel - Change Language: ");
+            Serial.print("CAN2004 Matrix - Change Language: ");
             Serial.print(tmpVal);
             Serial.println();
           }
+        } else {
+          Serial.print("CAN2004 Matrix - Unsupported language ID: ");
+          Serial.print(tmpVal);
+          Serial.println();
         }
       } else if (id == 865) { // 0x361 - Personalization menu
         // Work in progress, do not forward possible old personalization settings from CAN2004 
