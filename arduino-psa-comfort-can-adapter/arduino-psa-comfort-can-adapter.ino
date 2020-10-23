@@ -655,7 +655,7 @@ void loop() {
           Serial.println();
         }
       } else if (id == 865) { // 0x361 - Personalization menu
-        // Work in progress, do not forward possible old personalization settings from CAN2004 
+        // Work in progress, do not forward possible old personalization settings from CAN2004
       } else if (id == 608 && len == 8) { // 0x260
         // Do not forward original message, it has been completely redesigned on CAN2010
         // Also forge missing messages from CAN2004
@@ -687,6 +687,24 @@ void loop() {
         if (Send_CAN2010_ForgedMessages) {
           CAN0.sendMessage( & canMsgSnd);
         }
+
+        // Personalization settings: Investigation to do
+        // **************************
+        canMsgSnd.data[0] = 0x12;
+        canMsgSnd.data[1] = 0x3F;
+        canMsgSnd.data[2] = 0xFF;
+        canMsgSnd.data[3] = 0x3F;
+        canMsgSnd.data[4] = 0xFF;
+        canMsgSnd.data[5] = 0xFF;
+        canMsgSnd.data[6] = 0xFF;
+        canMsgSnd.data[7] = 0xFF;
+        canMsgSnd.can_id = 0x169; // New personalization settings
+        canMsgSnd.can_dlc = 8;
+        CAN1.sendMessage( & canMsgSnd);
+        if (Send_CAN2010_ForgedMessages) {
+          CAN0.sendMessage( & canMsgSnd);
+        }
+        // **************************
 
         // Economy mode simulation
         if (EconomyMode && EconomyModeEnabled) {
