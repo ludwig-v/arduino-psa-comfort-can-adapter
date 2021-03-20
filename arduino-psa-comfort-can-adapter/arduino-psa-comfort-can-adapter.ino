@@ -1,5 +1,6 @@
 /*
 Copyright 2020, Ludwig V. <https://github.com/ludwig-v>
+Copyright 2021, Nick V. (V3nn3tj3) <https://github.com/v3nn3tj3>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -24,7 +25,9 @@ all copies or substantial portions of the Software.
 #include <SPI.h>
 #include <Time.h>
 #include <TimeLib.h>
-#include <DS1307RTC.h> // https://github.com/PaulStoffregen/DS1307RTC
+#include <Wire.h>
+//#include <DS1307RTC.h> // https://github.com/PaulStoffregen/DS1307RTC
+#include <DS3232RTC.h> // https://github.com/PaulStoffregen/DS3232RTC
 #include <mcp2515.h> // https://github.com/autowp/arduino-mcp2515 + https://github.com/watterott/Arduino-Libs/tree/master/digitalWriteFast
 
 /////////////////////
@@ -35,7 +38,7 @@ all copies or substantial portions of the Software.
 #define CS_PIN_CAN1 9
 #define SERIAL_SPEED 115200
 #define CAN_SPEED CAN_125KBPS // Entertainment CAN bus - Low speed
-#define CAN_FREQ MCP_16MHZ // Switch to 8MHZ if you have a 8Mhz module
+#define CAN_FREQ MCP_8MHZ // Switch to 8MHZ if you have a 8Mhz module
 
 ////////////////////
 // Initialization //
@@ -67,6 +70,7 @@ int Time_year = 2020; // Default year if the RTC module is not configured
 byte Time_hour = 0; // Default hour if the RTC module is not configured
 byte Time_minute = 0; // Default minute if the RTC module is not configured
 bool resetEEPROM = false; // Switch to true to reset all EEPROM values
+bool hasDS3232RTC = true;
 
 // Default variables
 bool Ignition = false;
@@ -91,6 +95,8 @@ bool AutoFan = false;
 byte FanPosition = 0;
 bool MaintenanceDisplayed = false;
 byte carType = 0;
+long lastTempWarning = 0;
+bool tempWarningState = false;
 
 // Language & Unit CAN2010 value
 byte languageAndUnitNum = (languageID * 4) + 128;
@@ -229,6 +235,44 @@ void setup() {
 
 void loop() {
   int tmpVal;
+
+  if (hasDS3232RTC) {
+    tmpVal = RTC.temperature();
+    if (tmpVal / 4.0 > 80 && millis() - lastTempWarning > 30000) {
+      canMsgSnd.data[0] = 0x80;
+      canMsgSnd.data[1] = 0xEA;
+      canMsgSnd.data[2] = 0x80;
+      canMsgSnd.data[3] = 0x00;
+      canMsgSnd.data[4] = 0x00;
+      canMsgSnd.data[5] = 0x00;
+      canMsgSnd.data[6] = 0x00;
+      canMsgSnd.data[7] = 0x00;
+      canMsgSnd.can_id = 0x1A1;
+      canMsgSnd.can_dlc = 8;
+      if (SerialEnabled) {
+        Serial.println("Arduino temp to high");
+      }
+      CAN1.sendMessage( & canMsgSnd);
+      tempWarningState = true;
+      lastTempWarning = millis();
+    } else if (tempWarningState && millis() - lastTempWarning > 8000) {
+      canMsgSnd.data[0] = 0xFF;
+      canMsgSnd.data[1] = 0xEA;
+      canMsgSnd.data[2] = 0x00;
+      canMsgSnd.data[3] = 0x00;
+      canMsgSnd.data[4] = 0x00;
+      canMsgSnd.data[5] = 0x00;
+      canMsgSnd.data[6] = 0x00;
+      canMsgSnd.data[7] = 0x00;
+      canMsgSnd.can_id = 0x1A1;
+      canMsgSnd.can_dlc = 8;
+      if (SerialEnabled) {
+        Serial.println("Clear arduino temp to high");
+      }
+      CAN1.sendMessage( & canMsgSnd);
+      tempWarningState = false;
+    }
+  }
 
   // Receive CAN messages from the car
   if (CAN0.readMessage( & canMsgRcv) == MCP2515::ERROR_OK) {
@@ -561,10 +605,10 @@ void loop() {
 
         CAN1.sendMessage( & canMsgRcv);
       } else if (id == 360 && len == 8) { // Instrument Panel
-        canMsgSnd.data[0] = canMsgRcv.data[0]; 
-        canMsgSnd.data[1] = canMsgRcv.data[1]; 
+        canMsgSnd.data[0] = canMsgRcv.data[0];
+        canMsgSnd.data[1] = canMsgRcv.data[1];
         canMsgSnd.data[2] = canMsgRcv.data[5]; // Investigation to do
-        canMsgSnd.data[3] = canMsgRcv.data[3]; 
+        canMsgSnd.data[3] = canMsgRcv.data[3];
         canMsgSnd.data[4] = canMsgRcv.data[5]; // Investigation to do
         canMsgSnd.data[5] = canMsgRcv.data[5]; // Investigation to do
         canMsgSnd.data[6] = canMsgRcv.data[6];
