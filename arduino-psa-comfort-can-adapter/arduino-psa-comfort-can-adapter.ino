@@ -1,11 +1,11 @@
 /*
-  Copyright 2020, Ludwig V. <https://github.com/ludwig-v>
-  Copyright 2021, Nick V. (V3nn3tj3) <https://github.com/v3nn3tj3>
+Copyright 2020, Ludwig V. <https://github.com/ludwig-v>
+Copyright 2021, Nick V. (V3nn3tj3) <https://github.com/v3nn3tj3>
   
-  This program is free software: you can redistribute it and/or modify
-  it under the terms of the GNU General Public License as published by
-  the Free Software Foundation, either version 3 of the License, or
-  (at your option) any later version.
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
