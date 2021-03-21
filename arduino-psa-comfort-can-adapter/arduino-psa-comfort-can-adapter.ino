@@ -1,6 +1,7 @@
 /*
 Copyright 2020, Ludwig V. <https://github.com/ludwig-v>
-
+Copyright 2021, Nick V. (V3nn3tj3) <https://github.com/v3nn3tj3>
+  
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
@@ -24,6 +25,7 @@ all copies or substantial portions of the Software.
 #include <SPI.h>
 #include <Time.h>
 #include <TimeLib.h>
+#include <Wire.h>
 #include <DS1307RTC.h> // https://github.com/PaulStoffregen/DS1307RTC
 #include <mcp2515.h> // https://github.com/autowp/arduino-mcp2515 + https://github.com/watterott/Arduino-Libs/tree/master/digitalWriteFast
 
@@ -35,7 +37,7 @@ all copies or substantial portions of the Software.
 #define CS_PIN_CAN1 9
 #define SERIAL_SPEED 115200
 #define CAN_SPEED CAN_125KBPS // Entertainment CAN bus - Low speed
-#define CAN_FREQ MCP_16MHZ // Switch to 8MHZ if you have a 8Mhz module
+#define CAN_FREQ MCP_8MHZ // Switch to 8MHZ if you have a 8Mhz module
 
 ////////////////////
 // Initialization //
@@ -67,6 +69,10 @@ int Time_year = 2020; // Default year if the RTC module is not configured
 byte Time_hour = 0; // Default hour if the RTC module is not configured
 byte Time_minute = 0; // Default minute if the RTC module is not configured
 bool resetEEPROM = false; // Switch to true to reset all EEPROM values
+bool hasButtons = true;
+byte menuButton = 4;
+byte volDownButton = 5;
+byte volUpButton = 6;
 
 // Default variables
 bool Ignition = false;
@@ -91,6 +97,12 @@ bool AutoFan = false;
 byte FanPosition = 0;
 bool MaintenanceDisplayed = false;
 byte carType = 0;
+int buttonState = 0;
+int lastButtonState = 0;
+long lastDebounceTime = 0;
+long buttonPushTime = 0;
+long buttonSendTime = 0;
+long debounceDelay = 100;
 
 // Language & Unit CAN2010 value
 byte languageAndUnitNum = (languageID * 4) + 128;
@@ -162,6 +174,13 @@ void setup() {
     Time_year = tmpVal;
   }
 
+  if (hasButtons) {
+    //Initialize buttons - MENU/VOL+/VOL-
+    pinMode(menuButton, INPUT_PULLUP);
+    pinMode(volDownButton, INPUT_PULLUP);
+    pinMode(volUpButton, INPUT_PULLUP);
+  }
+
   if (SerialEnabled) {
     // Initalize Serial for debug
     Serial.begin(SERIAL_SPEED);
@@ -229,6 +248,142 @@ void setup() {
 
 void loop() {
   int tmpVal;
+
+  if (hasButtons) {
+    // Receive buttons from the car
+    if (((millis() - lastDebounceTime) > debounceDelay)) {
+      tmpVal = 0;
+      if (!digitalRead(menuButton)) tmpVal += 0b001;
+      if (!digitalRead(volDownButton)) tmpVal += 0b010;
+      if (!digitalRead(volUpButton)) tmpVal += 0b100;
+      if (tmpVal != lastButtonState) {
+        buttonPushTime = millis();
+        buttonSendTime = 0;
+        //buttonPushState = 0;
+      }
+      if ((millis() - buttonPushTime) > 100) {
+        switch (tmpVal) {
+          case 0b001:
+            //canMsgSnd.data[0] = 0x02; // MENU button
+            canMsgSnd.data[0] = 0x80;
+            canMsgSnd.data[1] = 0x00;
+            canMsgSnd.data[2] = 0x00;
+            canMsgSnd.data[3] = 0x00;
+            canMsgSnd.data[4] = 0x00;
+            canMsgSnd.data[5] = 0x02;
+            canMsgSnd.data[6] = 0x00;
+            canMsgSnd.data[7] = 0x00;
+            canMsgSnd.can_id = 0x122;
+            canMsgSnd.can_dlc = 8;
+            // Menu button
+            if (buttonSendTime == 0) {
+              CAN1.sendMessage( & canMsgSnd);
+              if (SerialEnabled) {
+                Serial.println("Menu");
+              }
+              lastDebounceTime = millis();
+              buttonSendTime = millis();
+              //buttonPushState = 1;
+            } else if (millis() - buttonPushTime > 800 && ((millis() - buttonPushTime < 2000 && millis() - buttonSendTime > 600) || (millis() - buttonPushTime > 2000  && millis() - buttonSendTime > 350))) {
+              CAN1.sendMessage( & canMsgSnd);
+              if (SerialEnabled) {
+                Serial.println("Menu");
+              }
+              buttonSendTime = millis();
+              lastDebounceTime = millis();
+            }
+            break;
+          case 0b010:
+            //canMsgSnd.data[0] = 0x04; //Volume down
+            //canMsgSnd.data[1] = 0x00;
+            //canMsgSnd.data[2] = 0x00;
+            //canMsgSnd.data[3] = 0x00;
+            //canMsgSnd.data[4] = 0x00;
+            //canMsgSnd.data[5] = 0x00;
+            //canMsgSnd.data[6] = 0x00;
+            //canMsgSnd.data[7] = 0x00;
+            //canMsgSnd.can_id = 0x122;
+            canMsgSnd.data[0] = 0x04; //Volume down
+            canMsgSnd.data[1] = 0x00;
+            canMsgSnd.data[2] = 0x00;
+            canMsgSnd.can_id = 0x21F;
+            canMsgSnd.can_dlc = 3;
+            // Menu button
+            if (buttonSendTime == 0) {
+              CAN1.sendMessage( & canMsgSnd);
+              if (SerialEnabled) {
+                Serial.println("Vol -");
+              }
+              lastDebounceTime = millis();
+              buttonSendTime = millis();
+              //buttonPushState = 1;
+            } else if (millis() - buttonPushTime > 800 && ((millis() - buttonPushTime < 2000 && millis() - buttonSendTime > 600) || (millis() - buttonPushTime > 2000  && millis() - buttonSendTime > 350))) {
+              CAN1.sendMessage( & canMsgSnd);
+              if (SerialEnabled) {
+                Serial.println("Vol -");
+              }
+              buttonSendTime = millis();
+              lastDebounceTime = millis();
+            }
+            break;
+          case 0b100:
+            //canMsgSnd.data[0] = 0x04; //Volume down
+            //canMsgSnd.data[1] = 0x00;
+            //canMsgSnd.data[2] = 0x00;
+            //canMsgSnd.data[3] = 0x00;
+            //canMsgSnd.data[4] = 0x00;
+            //canMsgSnd.data[5] = 0x00;
+            //canMsgSnd.data[6] = 0x00;
+            //canMsgSnd.data[7] = 0x00;
+            //canMsgSnd.can_id = 0x122;
+            canMsgSnd.data[0] = 0x08; //Volume down
+            canMsgSnd.data[1] = 0x00;
+            canMsgSnd.data[2] = 0x00;
+            canMsgSnd.can_id = 0x21F;
+            canMsgSnd.can_dlc = 3;
+            // Menu button
+            if (buttonSendTime == 0) {
+              CAN1.sendMessage( & canMsgSnd);
+              if (SerialEnabled) {
+                Serial.println("Vol +");
+              }
+              lastDebounceTime = millis();
+              buttonSendTime = millis();
+              //buttonPushState = 1;
+            } else if (millis() - buttonPushTime > 800 && ((millis() - buttonPushTime < 2000 && millis() - buttonSendTime > 600) || (millis() - buttonPushTime > 2000  && millis() - buttonSendTime > 350))) {
+              CAN1.sendMessage( & canMsgSnd);
+              if (SerialEnabled) {
+                Serial.println("Vol +");
+              }
+              buttonSendTime = millis();
+              lastDebounceTime = millis();
+            }
+            break;
+          case 0b110:
+            canMsgSnd.data[0] = 0x0C; //Mute
+            canMsgSnd.data[1] = 0x00;
+            canMsgSnd.data[2] = 0x00;
+            canMsgSnd.can_id = 0x21F;
+            canMsgSnd.can_dlc = 3;
+            // Menu button
+            if (buttonSendTime == 0) {
+              CAN1.sendMessage( & canMsgSnd);
+              if (SerialEnabled) {
+                Serial.println("Mute");
+              }
+              lastDebounceTime = millis();
+              buttonSendTime = millis();
+              //buttonPushState = 1;
+            }
+            break;
+          default:
+            //buttonPushState = 0;
+            lastDebounceTime = millis();
+        }
+      }
+      lastButtonState = tmpVal;
+    }
+  }
 
   // Receive CAN messages from the car
   if (CAN0.readMessage( & canMsgRcv) == MCP2515::ERROR_OK) {
@@ -561,10 +716,10 @@ void loop() {
 
         CAN1.sendMessage( & canMsgRcv);
       } else if (id == 360 && len == 8) { // Instrument Panel
-        canMsgSnd.data[0] = canMsgRcv.data[0]; 
-        canMsgSnd.data[1] = canMsgRcv.data[1]; 
+        canMsgSnd.data[0] = canMsgRcv.data[0];
+        canMsgSnd.data[1] = canMsgRcv.data[1];
         canMsgSnd.data[2] = canMsgRcv.data[5]; // Investigation to do
-        canMsgSnd.data[3] = canMsgRcv.data[3]; 
+        canMsgSnd.data[3] = canMsgRcv.data[3];
         canMsgSnd.data[4] = canMsgRcv.data[5]; // Investigation to do
         canMsgSnd.data[5] = canMsgRcv.data[5]; // Investigation to do
         canMsgSnd.data[6] = canMsgRcv.data[6];
