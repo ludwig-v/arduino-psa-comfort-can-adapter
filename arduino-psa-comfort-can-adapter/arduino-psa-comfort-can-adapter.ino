@@ -37,7 +37,7 @@ all copies or substantial portions of the Software.
 #define CS_PIN_CAN1 9
 #define SERIAL_SPEED 115200
 #define CAN_SPEED CAN_125KBPS // Entertainment CAN bus - Low speed
-#define CAN_FREQ MCP_8MHZ // Switch to 8MHZ if you have a 8Mhz module
+#define CAN_FREQ MCP_16MHZ // Switch to 8MHZ if you have a 8Mhz module
 
 ////////////////////
 // Initialization //
@@ -69,6 +69,10 @@ int Time_year = 2020; // Default year if the RTC module is not configured
 byte Time_hour = 0; // Default hour if the RTC module is not configured
 byte Time_minute = 0; // Default minute if the RTC module is not configured
 bool resetEEPROM = false; // Switch to true to reset all EEPROM values
+
+bool emulateVIN = false;
+char vinNumber[18] = "VF7SAHNPSKWXXXXXX";
+
 bool hasButtons = true;
 byte menuButton = 4;
 byte volDownButton = 5;
@@ -439,6 +443,35 @@ void loop() {
           EngineRunning = false;
         }
         CAN1.sendMessage( & canMsgRcv);
+      } else if (id == 822 && len == 3 && emulateVIN) { // ASCII coded first 3 letters of VIN
+        canMsgSnd.data[0] = vinNumber[0]; //V
+        canMsgSnd.data[1] = vinNumber[1]; //F
+        canMsgSnd.data[2] = vinNumber[2]; //7
+        canMsgSnd.can_id = 0x336;
+        canMsgSnd.can_dlc = 3;
+        CAN1.sendMessage( & canMsgSnd);
+      } else if (id == 950 && len == 6 && emulateVIN) { // ASCII coded 4-9 letters of VIN
+        canMsgSnd.data[0] = vinNumber[3]; //S
+        canMsgSnd.data[1] = vinNumber[4]; //A
+        canMsgSnd.data[2] = vinNumber[5]; //H
+        canMsgSnd.data[3] = vinNumber[6]; //N
+        canMsgSnd.data[4] = vinNumber[7]; //P
+        canMsgSnd.data[5] = vinNumber[8]; //S
+        canMsgSnd.can_id = 0x3B6;
+        canMsgSnd.can_dlc = 6;
+        CAN1.sendMessage( & canMsgSnd);
+      } else if (id == 694 && len == 8 && emulateVIN) { //ASCII coded 10-17 letters (last 8) of VIN
+        canMsgSnd.data[0] = vinNumber[9]; //K
+        canMsgSnd.data[1] = vinNumber[10]; //W
+        canMsgSnd.data[2] = vinNumber[11]; //X
+        canMsgSnd.data[3] = vinNumber[12]; //X
+        canMsgSnd.data[4] = vinNumber[13]; //X
+        canMsgSnd.data[5] = vinNumber[14]; //X
+        canMsgSnd.data[6] = vinNumber[15]; //X
+        canMsgSnd.data[7] = vinNumber[16]; //X
+        canMsgSnd.can_id = 0x2B6;
+        canMsgSnd.can_dlc = 8;
+        CAN1.sendMessage( & canMsgSnd);
       } else if (id == 543 && len == 3 && carType == 0 && noFMUX) { // 0x21F Steering wheel commands - Generic
         // Replace SRC by MENU (Valid for 208, C-Elysee calibrations for example)
 
