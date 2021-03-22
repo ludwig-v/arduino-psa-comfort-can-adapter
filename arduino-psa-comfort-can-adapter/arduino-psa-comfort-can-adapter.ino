@@ -70,10 +70,10 @@ byte Time_hour = 0; // Default hour if the RTC module is not configured
 byte Time_minute = 0; // Default minute if the RTC module is not configured
 bool resetEEPROM = false; // Switch to true to reset all EEPROM values
 
-bool emulateVIN = false;
+bool emulateVIN = false; // Replace network VIN by another (donor car for example)
 char vinNumber[18] = "VF3XXXXXXXXXXXXXX";
 
-bool hasButtons = false; // Analog buttons
+bool hasAnalogicButtons = false; // Analog buttons instead of FMUX
 byte menuButton = 4;
 byte volDownButton = 5;
 byte volUpButton = 6;
@@ -178,7 +178,7 @@ void setup() {
     Time_year = tmpVal;
   }
 
-  if (hasButtons) {
+  if (hasAnalogicButtons) {
     //Initialize buttons - MENU/VOL+/VOL-
     pinMode(menuButton, INPUT_PULLUP);
     pinMode(volDownButton, INPUT_PULLUP);
@@ -253,7 +253,7 @@ void setup() {
 void loop() {
   int tmpVal;
 
-  if (hasButtons) {
+  if (hasAnalogicButtons) {
     // Receive buttons from the car
     if (((millis() - lastDebounceTime) > debounceDelay)) {
       tmpVal = 0;
@@ -428,23 +428,23 @@ void loop() {
       } else if (id == 822 && len == 3 && emulateVIN) { // ASCII coded first 3 letters of VIN
         canMsgSnd.data[0] = vinNumber[0]; //V
         canMsgSnd.data[1] = vinNumber[1]; //F
-        canMsgSnd.data[2] = vinNumber[2]; //7
+        canMsgSnd.data[2] = vinNumber[2]; //3
         canMsgSnd.can_id = 0x336;
         canMsgSnd.can_dlc = 3;
         CAN1.sendMessage( & canMsgSnd);
       } else if (id == 950 && len == 6 && emulateVIN) { // ASCII coded 4-9 letters of VIN
-        canMsgSnd.data[0] = vinNumber[3]; //S
-        canMsgSnd.data[1] = vinNumber[4]; //A
-        canMsgSnd.data[2] = vinNumber[5]; //H
-        canMsgSnd.data[3] = vinNumber[6]; //N
-        canMsgSnd.data[4] = vinNumber[7]; //P
-        canMsgSnd.data[5] = vinNumber[8]; //S
+        canMsgSnd.data[0] = vinNumber[3]; //X
+        canMsgSnd.data[1] = vinNumber[4]; //X
+        canMsgSnd.data[2] = vinNumber[5]; //X
+        canMsgSnd.data[3] = vinNumber[6]; //X
+        canMsgSnd.data[4] = vinNumber[7]; //X
+        canMsgSnd.data[5] = vinNumber[8]; //X
         canMsgSnd.can_id = 0x3B6;
         canMsgSnd.can_dlc = 6;
         CAN1.sendMessage( & canMsgSnd);
       } else if (id == 694 && len == 8 && emulateVIN) { //ASCII coded 10-17 letters (last 8) of VIN
-        canMsgSnd.data[0] = vinNumber[9]; //K
-        canMsgSnd.data[1] = vinNumber[10]; //W
+        canMsgSnd.data[0] = vinNumber[9]; //X
+        canMsgSnd.data[1] = vinNumber[10]; //X
         canMsgSnd.data[2] = vinNumber[11]; //X
         canMsgSnd.data[3] = vinNumber[12]; //X
         canMsgSnd.data[4] = vinNumber[13]; //X
@@ -454,12 +454,10 @@ void loop() {
         canMsgSnd.can_id = 0x2B6;
         canMsgSnd.can_dlc = 8;
         CAN1.sendMessage( & canMsgSnd);
-      } else if (id == 543 && len == 3 && carType == 0 && noFMUX) { // 0x21F Steering wheel commands - Generic
-        // Replace SRC by MENU (Valid for 208, C-Elysee calibrations for example)
-
+      } else if (id == 543 && len == 3) { // 0x21F Steering wheel commands - Generic
         tmpVal = canMsgRcv.data[0];
 
-        if (tmpVal == 2) {
+        if (tmpVal == 2 && noFMUX && carType == 0) { // Replace SRC by MENU (Valid for 208, C-Elysee calibrations for example)
           canMsgSnd.data[0] = 0x80; // MENU button
           canMsgSnd.data[1] = 0x00;
           canMsgSnd.data[2] = 0x00;
@@ -471,15 +469,16 @@ void loop() {
         } else {
           CAN1.sendMessage( & canMsgRcv);
 
-          // Fake FMUX Buttons in the car
-          canMsgSnd.data[0] = 0x00;
-          canMsgSnd.data[1] = 0x00;
-          canMsgSnd.data[2] = 0x00;
-          canMsgSnd.data[3] = 0x00;
-          canMsgSnd.data[4] = 0x00;
-          canMsgSnd.data[5] = 0x02;
-          canMsgSnd.data[6] = 0x00; // Volume potentiometer button
-          canMsgSnd.data[7] = 0x00;
+          if (noFMUX || hasAnalogicButtons) { // Fake FMUX Buttons in the car
+            canMsgSnd.data[0] = 0x00;
+            canMsgSnd.data[1] = 0x00;
+            canMsgSnd.data[2] = 0x00;
+            canMsgSnd.data[3] = 0x00;
+            canMsgSnd.data[4] = 0x00;
+            canMsgSnd.data[5] = 0x02;
+            canMsgSnd.data[6] = 0x00; // Volume potentiometer button
+            canMsgSnd.data[7] = 0x00;
+          }
         }
         canMsgSnd.can_id = 0x122;
         canMsgSnd.can_dlc = 8;
