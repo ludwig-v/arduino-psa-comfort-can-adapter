@@ -77,6 +77,7 @@ bool hasAnalogicButtons = false; // Analog buttons instead of FMUX
 byte menuButton = 4;
 byte volDownButton = 5;
 byte volUpButton = 6;
+byte scrollValue = 0;
 
 // Default variables
 bool Ignition = false;
@@ -269,12 +270,12 @@ void loop() {
         switch (tmpVal) {
         case 0b001:
           //canMsgSnd.data[0] = 0x02; // MENU button
-          canMsgSnd.data[0] = 0x80;
+          canMsgSnd.data[0] = 0x02;
           canMsgSnd.data[1] = 0x00;
           canMsgSnd.data[2] = 0x00;
           canMsgSnd.data[3] = 0x00;
           canMsgSnd.data[4] = 0x00;
-          canMsgSnd.data[5] = 0x02;
+          canMsgSnd.data[5] = 0xFF;
           canMsgSnd.data[6] = 0x00;
           canMsgSnd.data[7] = 0x00;
           canMsgSnd.can_id = 0x122;
@@ -299,7 +300,7 @@ void loop() {
           break;
         case 0b010:
           canMsgSnd.data[0] = 0x04; //Volume down
-          canMsgSnd.data[1] = 0x00;
+          canMsgSnd.data[1] = scrollValue;
           canMsgSnd.data[2] = 0x00;
           canMsgSnd.can_id = 0x21F;
           canMsgSnd.can_dlc = 3;
@@ -323,7 +324,7 @@ void loop() {
           break;
         case 0b100:
           canMsgSnd.data[0] = 0x08; //Volume down
-          canMsgSnd.data[1] = 0x00;
+          canMsgSnd.data[1] = scrollValue;
           canMsgSnd.data[2] = 0x00;
           canMsgSnd.can_id = 0x21F;
           canMsgSnd.can_dlc = 3;
@@ -347,7 +348,7 @@ void loop() {
           break;
         case 0b110:
           canMsgSnd.data[0] = 0x0C; //Mute
-          canMsgSnd.data[1] = 0x00;
+          canMsgSnd.data[1] = scrollValue;
           canMsgSnd.data[2] = 0x00;
           canMsgSnd.can_id = 0x21F;
           canMsgSnd.can_dlc = 3;
@@ -456,7 +457,8 @@ void loop() {
         CAN1.sendMessage( & canMsgSnd);
       } else if (id == 543 && len == 3) { // 0x21F Steering wheel commands - Generic
         tmpVal = canMsgRcv.data[0];
-
+        scrollValue = canMsgRcv.data[1];
+        
         if (tmpVal == 2 && noFMUX && carType == 0) { // Replace SRC by MENU (Valid for 208, C-Elysee calibrations for example)
           canMsgSnd.data[0] = 0x80; // MENU button
           canMsgSnd.data[1] = 0x00;
