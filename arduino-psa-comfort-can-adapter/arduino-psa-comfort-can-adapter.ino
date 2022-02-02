@@ -109,6 +109,8 @@ long lastDebounceTime = 0;
 long buttonPushTime = 0;
 long buttonSendTime = 0;
 long debounceDelay = 100;
+int daysSinceYearStart = 0;
+unsigned long customTimeStamp = 0;
 
 // Language & Unit CAN2010 value
 byte languageAndUnitNum = (languageID * 4) + 128;
@@ -234,7 +236,7 @@ void setup() {
   canMsgSnd.can_dlc = 2;
   CAN0.sendMessage( & canMsgSnd);
 
-  // Send fake EMF version to avoid engine error
+  // Send fake EMF version
   canMsgSnd.data[0] = 0x25;
   canMsgSnd.data[1] = 0x1D;
   canMsgSnd.data[2] = 0x03;
@@ -433,6 +435,18 @@ void loop() {
           canMsgRcv.data[3] = 0x28; // Set fixed value to avoid low brightness due to incorrect CAN2010 Telematic calibration
         }
         CAN1.sendMessage( & canMsgRcv);
+
+        canMsgSnd.data[0] = 0x08;
+        canMsgSnd.data[1] = 0x10;
+        canMsgSnd.data[2] = 0xFF;
+        canMsgSnd.data[3] = 0xFF;
+        canMsgSnd.data[4] = 0x7F;
+        canMsgSnd.data[5] = 0xFF;
+        canMsgSnd.data[6] = 0x00;
+        canMsgSnd.data[7] = 0x00;
+        canMsgSnd.can_id = 0x167; // Fake EMF status frame
+        canMsgSnd.can_dlc = 8;
+        CAN0.sendMessage( & canMsgSnd);
       } else if (id == 182 && len == 8) {
         if (canMsgRcv.data[0] > 0x00 || canMsgRcv.data[1] > 0x00) { // Engine RPM, 0x00 0x00 when the engine is OFF
           EngineRunning = true;
@@ -761,6 +775,23 @@ void loop() {
         if (Send_CAN2010_ForgedMessages) { // Will generate some light issues on the instrument panel
           CAN0.sendMessage( & canMsgSnd);
         }
+      } else if (id == 545) { // Trip info
+        CAN0.sendMessage( & canMsgRcv); // Forward original frame
+
+		customTimeStamp = (long)hour() * (long)3600 + minute() * 60 + second();
+		daysSinceYearStart = daysSinceYearStartFct();
+
+        canMsgSnd.data[0] = (((1 << 8) - 1) & (customTimeStamp >> (12)));
+        canMsgSnd.data[1] = (((1 << 8) - 1) & (customTimeStamp >> (4)));
+        canMsgSnd.data[2] = (((((1 << 4) - 1) & (customTimeStamp)) << 4)) + (((1 << 4) - 1) & (daysSinceYearStart >> (8)));
+        canMsgSnd.data[3] = (((1 << 8) - 1) & (daysSinceYearStart));
+        canMsgSnd.data[4] = 0x00;
+        canMsgSnd.data[5] = 0xC0;
+        canMsgSnd.data[6] = languageID;
+        canMsgSnd.can_id = 0x3F6; // Fake EMF Time frame
+        canMsgSnd.can_dlc = 7;
+
+        CAN0.sendMessage( & canMsgSnd);
       } else if (id == 296 && len == 8) { // Instrument Panel
         canMsgSnd.data[0] = canMsgRcv.data[4]; // Main driving lights
         canMsgSnd.data[1] = canMsgRcv.data[6];
@@ -1195,4 +1226,30 @@ void loop() {
     }
 
   }
+}
+
+int daysSinceYearStartFct() {
+  // Given a day, month, and year (4 digit), returns 
+  // the day of year. Errors return 999.
+  int daysInMonth[] = {31,28,31,30,31,30,31,31,30,31,30,31};
+  // Check if it is a leap year, this is confusing business
+  // See: https://support.microsoft.com/en-us/kb/214019
+  if (year()%4  == 0) {
+    if (year()%100 != 0) {
+      daysInMonth[1] = 29;
+    }
+    else {
+      if (year()%400 == 0) {
+        daysInMonth[1] = 29;
+      }
+    }
+   }
+  
+  int doy = 0;
+  for (int i = 0; i < month() - 1; i++) {
+    doy += daysInMonth[i];
+  }
+  
+  doy += day();
+  return doy;
 }
