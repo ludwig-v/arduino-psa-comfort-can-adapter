@@ -233,6 +233,19 @@ void setup() {
   canMsgSnd.can_dlc = 2;
   CAN0.sendMessage( & canMsgSnd);
 
+  // Send fake EMF version to avoid engine error
+  canMsgSnd.data[0] = 0x25;
+  canMsgSnd.data[1] = 0x1D;
+  canMsgSnd.data[2] = 0x03;
+  canMsgSnd.data[3] = 0x06;
+  canMsgSnd.data[4] = 0x08;
+  canMsgSnd.data[5] = 0x00;
+  canMsgSnd.data[6] = 0x20;
+  canMsgSnd.data[7] = 0x10;
+  canMsgSnd.can_id = 0x5E5;
+  canMsgSnd.can_dlc = 8;
+  CAN0.sendMessage( & canMsgSnd);
+
   if (SerialEnabled) {
     Serial.print("Current Time: ");
     Serial.print(day());
