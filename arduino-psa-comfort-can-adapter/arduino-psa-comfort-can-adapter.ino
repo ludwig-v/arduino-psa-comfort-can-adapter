@@ -1,5 +1,5 @@
 /*
-Copyright 2019-2021, Ludwig V. <https://github.com/ludwig-v>
+Copyright 2019-2022, Ludwig V. <https://github.com/ludwig-v>
 Copyright 2021, Nick V. (V3nn3tj3) <https://github.com/v3nn3tj3>
   
 This program is free software: you can redistribute it and/or modify
@@ -65,10 +65,11 @@ byte languageID = 0; // Default is FR: 0 - EN: 1 / DE: 2 / ES: 3 / IT: 4 / PT: 5
 bool listenCAN2004Language = false; // Switch language on CAN2010 devices if changed on supported CAN2004 devices, default: no
 byte Time_day = 1; // Default day if the RTC module is not configured
 byte Time_month = 1; // Default month if the RTC module is not configured
-int Time_year = 2021; // Default year if the RTC module is not configured
+int Time_year = 2022; // Default year if the RTC module is not configured
 byte Time_hour = 0; // Default hour if the RTC module is not configured
 byte Time_minute = 0; // Default minute if the RTC module is not configured
 bool resetEEPROM = false; // Switch to true to reset all EEPROM values
+bool CVM_Emul = true; // Send suggested speed from Telematic to fake CVM (Multifunction camera inside the windshield) frame
 
 bool emulateVIN = false; // Replace network VIN by another (donor car for example)
 char vinNumber[18] = "VF3XXXXXXXXXXXXXX";
@@ -1110,6 +1111,21 @@ void loop() {
             Serial.println();
           }
         }
+      } else if (id == 489 && len >= 2 && CVM_Emul) { // Telematic suggested speed to fake CVM frame
+        CAN1.sendMessage( & canMsgRcv);
+
+        canMsgSnd.data[0] = canMsgRcv.data[1];
+        canMsgSnd.data[1] = 0x10;
+        canMsgSnd.data[2] = 0x00;
+        canMsgSnd.data[3] = 0x00;
+        canMsgSnd.data[4] = 0x7C;
+        canMsgSnd.data[5] = 0xF8;
+        canMsgSnd.data[6] = 0x00;
+        canMsgSnd.data[7] = 0x00;
+        canMsgSnd.can_id = 0x268; // CVM Frame ID
+        canMsgSnd.can_dlc = 8;
+        CAN1.sendMessage( & canMsgSnd);
+        CAN0.sendMessage( & canMsgSnd); // Also send to CAN2004 "just in case", free frame
       } else if (id == 485 && len == 7) {
         // Ambience mapping
         tmpVal = canMsgRcv.data[5];
