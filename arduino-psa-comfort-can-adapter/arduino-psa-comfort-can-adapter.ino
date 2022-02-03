@@ -447,6 +447,8 @@ void loop() {
         canMsgSnd.can_id = 0x167; // Fake EMF status frame
         canMsgSnd.can_dlc = 8;
         CAN0.sendMessage( & canMsgSnd);
+      } else if (id == 359) { // EMF status frame
+        // Do not forward, acting as FMUX on NAC
       } else if (id == 182 && len == 8) {
         if (canMsgRcv.data[0] > 0x00 || canMsgRcv.data[1] > 0x00) { // Engine RPM, 0x00 0x00 when the engine is OFF
           EngineRunning = true;
@@ -486,7 +488,7 @@ void loop() {
       } else if (id == 543 && len == 3) { // 0x21F Steering wheel commands - Generic
         tmpVal = canMsgRcv.data[0];
         scrollValue = canMsgRcv.data[1];
-        
+
         if (tmpVal == 2 && noFMUX && carType == 0) { // Replace SRC by MENU (Valid for 208, C-Elysee calibrations for example)
           canMsgSnd.data[0] = 0x80; // MENU button
           canMsgSnd.data[1] = 0x00;
@@ -776,10 +778,10 @@ void loop() {
           CAN0.sendMessage( & canMsgSnd);
         }
       } else if (id == 545) { // Trip info
-        CAN0.sendMessage( & canMsgRcv); // Forward original frame
+        CAN1.sendMessage( & canMsgRcv); // Forward original frame
 
-		customTimeStamp = (long)hour() * (long)3600 + minute() * 60 + second();
-		daysSinceYearStart = daysSinceYearStartFct();
+        customTimeStamp = (long)hour() * (long)3600 + minute() * 60 + second();
+        daysSinceYearStart = daysSinceYearStartFct();
 
         canMsgSnd.data[0] = (((1 << 8) - 1) & (customTimeStamp >> (12)));
         canMsgSnd.data[1] = (((1 << 8) - 1) & (customTimeStamp >> (4)));
@@ -921,24 +923,6 @@ void loop() {
         if (Send_CAN2010_ForgedMessages) {
           CAN0.sendMessage( & canMsgSnd);
         }
-
-        // Personalization settings: Investigation to do
-        // **************************
-        canMsgSnd.data[0] = 0x12;
-        canMsgSnd.data[1] = 0x3F;
-        canMsgSnd.data[2] = 0xFF;
-        canMsgSnd.data[3] = 0x3F;
-        canMsgSnd.data[4] = 0xFF;
-        canMsgSnd.data[5] = 0xFF;
-        canMsgSnd.data[6] = 0xFF;
-        canMsgSnd.data[7] = 0xFF;
-        canMsgSnd.can_id = 0x169; // New personalization settings
-        canMsgSnd.can_dlc = 8;
-        CAN1.sendMessage( & canMsgSnd);
-        if (Send_CAN2010_ForgedMessages) {
-          CAN0.sendMessage( & canMsgSnd);
-        }
-        // **************************
 
         // Economy mode simulation
         if (EconomyMode && EconomyModeEnabled) {
@@ -1143,7 +1127,7 @@ void loop() {
           }
         }
       } else if (id == 489 && len >= 2 && CVM_Emul) { // Telematic suggested speed to fake CVM frame
-        CAN1.sendMessage( & canMsgRcv);
+        CAN0.sendMessage( & canMsgRcv);
 
         canMsgSnd.data[0] = canMsgRcv.data[1];
         canMsgSnd.data[1] = 0x10;
@@ -1156,7 +1140,6 @@ void loop() {
         canMsgSnd.can_id = 0x268; // CVM Frame ID
         canMsgSnd.can_dlc = 8;
         CAN1.sendMessage( & canMsgSnd);
-        CAN0.sendMessage( & canMsgSnd); // Also send to CAN2004 "just in case", free frame
       } else if (id == 485 && len == 7) {
         // Ambience mapping
         tmpVal = canMsgRcv.data[5];
