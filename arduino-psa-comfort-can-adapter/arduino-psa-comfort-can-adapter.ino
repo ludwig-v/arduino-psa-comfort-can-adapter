@@ -1133,8 +1133,10 @@ void loop() {
       } else if (id == 489 && len >= 2 && CVM_Emul) { // Telematic suggested speed to fake CVM frame
         CAN0.sendMessage( & canMsgRcv);
 
+        tmpVal = (canMsgRcv.data[3] >> 2); // POI type (6b)
+
         canMsgSnd.data[0] = canMsgRcv.data[1];
-        canMsgSnd.data[1] = ((bitRead(canMsgRcv.data[3], 4) == 1 && bitRead(canMsgRcv.data[3], 3) == 1 && vehicleSpeed > (canMsgRcv.data[0] + speedMargin)) ? 0x30 : 0x10); // POI Over-speed, make speed limit blink
+        canMsgSnd.data[1] = (tmpVal > 0 && vehicleSpeed > (canMsgRcv.data[0] + speedMargin)) ? 0x30 : 0x10); // POI Over-speed, make speed limit blink
         canMsgSnd.data[2] = 0x00;
         canMsgSnd.data[3] = 0x00;
         canMsgSnd.data[4] = 0x7C;
