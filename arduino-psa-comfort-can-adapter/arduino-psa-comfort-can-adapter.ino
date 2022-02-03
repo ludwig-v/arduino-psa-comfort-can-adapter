@@ -113,6 +113,7 @@ int daysSinceYearStart = 0;
 unsigned long customTimeStamp = 0;
 int vehicleSpeed = 0;
 byte speedMargin = 3;
+int engineRPM = 0;
 
 // Language & Unit CAN2010 value
 byte languageAndUnitNum = (languageID * 4) + 128;
@@ -415,8 +416,7 @@ void loop() {
       CAN1.sendMessage( & canMsgRcv);
     } else if (!debugCAN1) {
       if (id == 54 && len == 8) { // Economy Mode detection
-        tmpVal = canMsgRcv.data[2];
-        if (tmpVal >= 128) {
+        if (bitRead(canMsgRcv.data[2], 7) == 1) {
           if (!EconomyMode && SerialEnabled) {
             Serial.println("Economy mode ON");
           }
@@ -452,7 +452,8 @@ void loop() {
       } else if (id == 359) { // EMF status frame
         // Do not forward, acting as FMUX on NAC
       } else if (id == 182 && len == 8) {
-        if (canMsgRcv.data[0] > 0x00 || canMsgRcv.data[1] > 0x00) { // Engine RPM, 0x00 0x00 when the engine is OFF
+        engineRPM = (canMsgRcv.data[2] << 8) | (canMsgRcv.data[3] << 3);
+        if (engineRPM > 0) {
           EngineRunning = true;
         } else {
           EngineRunning = false;
@@ -1133,7 +1134,7 @@ void loop() {
         CAN0.sendMessage( & canMsgRcv);
 
         canMsgSnd.data[0] = canMsgRcv.data[1];
-        canMsgSnd.data[1] = ((canMsgRcv.data[3] == 0x0C && vehicleSpeed > (canMsgRcv.data[0] + speedMargin)) ? 0x30 : 0x10); // POI Over-speed, make speed limit blink
+        canMsgSnd.data[1] = ((bitRead(canMsgRcv.data[3], 4) == 1 && bitRead(canMsgRcv.data[3], 3) == 1 && vehicleSpeed > (canMsgRcv.data[0] + speedMargin)) ? 0x30 : 0x10); // POI Over-speed, make speed limit blink
         canMsgSnd.data[2] = 0x00;
         canMsgSnd.data[3] = 0x00;
         canMsgSnd.data[4] = 0x7C;
