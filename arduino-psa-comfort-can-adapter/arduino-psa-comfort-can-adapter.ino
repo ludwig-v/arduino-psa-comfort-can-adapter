@@ -112,6 +112,7 @@ long debounceDelay = 100;
 int daysSinceYearStart = 0;
 unsigned long customTimeStamp = 0;
 int vehicleSpeed = 0;
+byte speedMargin = 3;
 
 // Language & Unit CAN2010 value
 byte languageAndUnitNum = (languageID * 4) + 128;
@@ -1132,7 +1133,7 @@ void loop() {
         CAN0.sendMessage( & canMsgRcv);
 
         canMsgSnd.data[0] = canMsgRcv.data[1];
-        canMsgSnd.data[1] = ((canMsgRcv.data[3] == 0x0C && vehicleSpeed > canMsgRcv.data[0]) ? 0x30 : 0x10); // POI Over-speed, make speed limit blink
+        canMsgSnd.data[1] = ((canMsgRcv.data[3] == 0x0C && vehicleSpeed > (canMsgRcv.data[0] + speedMargin)) ? 0x30 : 0x10); // POI Over-speed, make speed limit blink
         canMsgSnd.data[2] = 0x00;
         canMsgSnd.data[3] = 0x00;
         canMsgSnd.data[4] = 0x7C;
