@@ -111,6 +111,7 @@ long buttonSendTime = 0;
 long debounceDelay = 100;
 int daysSinceYearStart = 0;
 unsigned long customTimeStamp = 0;
+int vehicleSpeed = 0;
 
 // Language & Unit CAN2010 value
 byte languageAndUnitNum = (languageID * 4) + 128;
@@ -455,6 +456,7 @@ void loop() {
         } else {
           EngineRunning = false;
         }
+        vehicleSpeed = ((canMsgRcv.data[2] << 8) | canMsgRcv.data[3]) / 100;
         CAN1.sendMessage( & canMsgRcv);
       } else if (id == 822 && len == 3 && emulateVIN) { // ASCII coded first 3 letters of VIN
         canMsgSnd.data[0] = vinNumber[0]; //V
@@ -780,7 +782,7 @@ void loop() {
       } else if (id == 545) { // Trip info
         CAN1.sendMessage( & canMsgRcv); // Forward original frame
 
-        customTimeStamp = (long)hour() * (long)3600 + minute() * 60 + second();
+        customTimeStamp = (long) hour() * (long) 3600 + minute() * 60 + second();
         daysSinceYearStart = daysSinceYearStartFct();
 
         canMsgSnd.data[0] = (((1 << 8) - 1) & (customTimeStamp >> (12)));
@@ -1130,7 +1132,7 @@ void loop() {
         CAN0.sendMessage( & canMsgRcv);
 
         canMsgSnd.data[0] = canMsgRcv.data[1];
-        canMsgSnd.data[1] = 0x10;
+        canMsgSnd.data[1] = ((canMsgRcv.data[3] == 0x0C && vehicleSpeed > canMsgRcv.data[0]) ? 0x30 : 0x10); // POI Over-speed, make speed limit blink
         canMsgSnd.data[2] = 0x00;
         canMsgSnd.data[3] = 0x00;
         canMsgSnd.data[4] = 0x7C;
