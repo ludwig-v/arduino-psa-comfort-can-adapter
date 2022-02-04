@@ -1158,13 +1158,73 @@ void loop() {
             Serial.println();
           }
         }
+        bitWrite(canMsgSnd.data[0], 7, 0);
+        bitWrite(canMsgSnd.data[0], 6, 0);
+        bitWrite(canMsgSnd.data[0], 5, 0);
+        bitWrite(canMsgSnd.data[0], 4, 0);
+        bitWrite(canMsgSnd.data[0], 3, 0);
+        bitWrite(canMsgSnd.data[0], 2, 1); // Parameters disponibility
+        bitWrite(canMsgSnd.data[0], 1, 0);
+        bitWrite(canMsgSnd.data[0], 0, 0);
+        bitWrite(canMsgSnd.data[1], 7, bitRead(canMsgRcv.data[2], 6)); // Selective openings
+        bitWrite(canMsgSnd.data[1], 6, 1);
+        bitWrite(canMsgSnd.data[1], 5, bitRead(canMsgRcv.data[2], 4)); // Selective rear openings
+        bitWrite(canMsgSnd.data[1], 4, bitRead(canMsgRcv.data[2], 5)); // Selective openings
+        bitWrite(canMsgSnd.data[1], 3, 0);
+        bitWrite(canMsgSnd.data[1], 2, 0);
+        bitWrite(canMsgSnd.data[1], 1, bitRead(canMsgRcv.data[2], 3)); // Driver welcome
+        bitWrite(canMsgSnd.data[1], 0, bitRead(canMsgRcv.data[2], 7)); // Parking brake
+        bitWrite(canMsgSnd.data[2], 7, bitRead(canMsgRcv.data[2], 2)); // Adaptative lighting
+        bitWrite(canMsgSnd.data[2], 6, bitRead(canMsgRcv.data[3], 4)); // Beam
+        bitWrite(canMsgSnd.data[2], 5, bitRead(canMsgRcv.data[3], 7)); // Guide-me home lighting
+        bitWrite(canMsgSnd.data[2], 4, bitRead(canMsgRcv.data[3], 0)); // Automatic headlights
+        bitWrite(canMsgSnd.data[2], 3, 0);
+        bitWrite(canMsgSnd.data[2], 2, 0);
+        bitWrite(canMsgSnd.data[2], 1, bitRead(canMsgRcv.data[3], 6)); // Duration Guide-me home lighting (2b)
+        bitWrite(canMsgSnd.data[2], 0, bitRead(canMsgRcv.data[3], 5)); // Duration Guide-me home lighting (2b)
+        bitWrite(canMsgSnd.data[3], 7, bitRead(canMsgRcv.data[2], 0)); // Ambiance lighting 
+        bitWrite(canMsgSnd.data[3], 6, bitRead(canMsgRcv.data[2], 1)); // Daytime running lights
+        bitWrite(canMsgSnd.data[3], 5, 0);
+        bitWrite(canMsgSnd.data[3], 4, 0);
+        bitWrite(canMsgSnd.data[3], 3, 0);
+        bitWrite(canMsgSnd.data[3], 2, 0);
+        bitWrite(canMsgSnd.data[3], 1, 0);
+        bitWrite(canMsgSnd.data[3], 0, 0);
+        canMsgSnd.data[4] = 0x00;
+        bitWrite(canMsgSnd.data[5], 7, bitRead(canMsgRcv.data[4], 7)); // AAS
+        bitWrite(canMsgSnd.data[5], 6, bitRead(canMsgRcv.data[4], 7)); // AAS
+        bitWrite(canMsgSnd.data[5], 5, 0);
+        bitWrite(canMsgSnd.data[5], 4, bitRead(canMsgRcv.data[4], 5)); // Wiper in reverse
+        bitWrite(canMsgSnd.data[5], 3, 0);
+        bitWrite(canMsgSnd.data[5], 2, 0);
+        bitWrite(canMsgSnd.data[5], 1, 0);
+        bitWrite(canMsgSnd.data[5], 0, 0);
+        bitWrite(canMsgSnd.data[6], 7, 0);
+        bitWrite(canMsgSnd.data[6], 6, bitRead(canMsgRcv.data[4], 6)); // SAM
+        bitWrite(canMsgSnd.data[6], 5, bitRead(canMsgRcv.data[4], 6)); // SAM
+        bitWrite(canMsgSnd.data[6], 4, 0);
+        bitWrite(canMsgSnd.data[6], 3, 0);
+        bitWrite(canMsgSnd.data[6], 2, 0);
+        bitWrite(canMsgSnd.data[6], 1, 0);
+        bitWrite(canMsgSnd.data[6], 0, 0);
+        bitWrite(canMsgSnd.data[7], 7, bitRead(canMsgRcv.data[4], 3)); // Configurable button
+        bitWrite(canMsgSnd.data[7], 6, bitRead(canMsgRcv.data[4], 2)); // Configurable button
+        bitWrite(canMsgSnd.data[7], 5, bitRead(canMsgRcv.data[4], 1)); // Configurable button
+        bitWrite(canMsgSnd.data[7], 4, bitRead(canMsgRcv.data[4], 0)); // Configurable button
+        bitWrite(canMsgSnd.data[7], 3, 0);
+        bitWrite(canMsgSnd.data[7], 2, 0);
+        bitWrite(canMsgSnd.data[7], 1, 0);
+        bitWrite(canMsgSnd.data[7], 0, 0);
+        canMsgSnd.can_id = 0x15B;
+        canMsgSnd.can_dlc = 8;
+        CAN0.sendMessage( & canMsgSnd);
       } else if (id == 489 && len >= 2 && CVM_Emul) { // Telematic suggested speed to fake CVM frame
         CAN0.sendMessage( & canMsgRcv);
 
         tmpVal = (canMsgRcv.data[3] >> 2); // POI type (6b)
 
         canMsgSnd.data[0] = canMsgRcv.data[1];
-        canMsgSnd.data[1] = (tmpVal > 0 && vehicleSpeed > (canMsgRcv.data[0] + speedMargin)) ? 0x30 : 0x10); // POI Over-speed, make speed limit blink
+        canMsgSnd.data[1] = ((tmpVal > 0 && vehicleSpeed > (canMsgRcv.data[0] + speedMargin)) ? 0x30 : 0x10); // POI Over-speed, make speed limit blink
         canMsgSnd.data[2] = 0x00;
         canMsgSnd.data[3] = 0x00;
         canMsgSnd.data[4] = 0x7C;
