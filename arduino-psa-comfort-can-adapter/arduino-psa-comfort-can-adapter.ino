@@ -907,6 +907,10 @@ void loop() {
         bitWrite(canMsgSnd.data[1], 6, bitRead(canMsgRcv.data[3], 5)); // Wiper in reverse - Status
         bitWrite(canMsgSnd.data[1], 5, bitRead(canMsgRcv.data[2], 4)); // Guide-me home lighting - Status
         bitWrite(canMsgSnd.data[1], 4, bitRead(canMsgRcv.data[1], 2)); // Driver welcome - Status
+        bitWrite(canMsgSnd.data[1], 3, 0);
+        bitWrite(canMsgSnd.data[1], 2, 0);
+        bitWrite(canMsgSnd.data[1], 1, 0);
+        bitWrite(canMsgSnd.data[1], 0, 0);
         canMsgSnd.data[2] = 0x00;
         canMsgSnd.data[3] = 0x00;
         canMsgSnd.data[4] = 0x00;
@@ -925,25 +929,26 @@ void loop() {
 
         // Language / Units / Settings
         canMsgSnd.data[0] = languageAndUnitNum;
-
-        if (TemperatureInF) {
-          canMsgSnd.data[1] = 0x5C;
-        } else {
-          canMsgSnd.data[1] = 0x1C;
-        }
-        if (mpgMi) {
-          canMsgSnd.data[1] = canMsgSnd.data[1] + 128;
-        }
-
-        // Vehicle Menu settings on NAC/RCC: Investigation to do
-        // **************************
-        canMsgSnd.data[2] = 0x00;
+        bitWrite(canMsgSnd.data[1], 7, (mpgMi)?1:0);
+        bitWrite(canMsgSnd.data[1], 6, (TemperatureInF)?1:0);
+        bitWrite(canMsgSnd.data[1], 5, 0); // Ambiance level
+        bitWrite(canMsgSnd.data[1], 4, 1); // Ambiance level
+        bitWrite(canMsgSnd.data[1], 3, 1); // Ambiance level
+        bitWrite(canMsgSnd.data[1], 2, 1); // Parameters disponibility
+        bitWrite(canMsgSnd.data[1], 1, 0); // Sound Harmony
+        bitWrite(canMsgSnd.data[1], 0, 0); // Sound Harmony
+        bitWrite(canMsgSnd.data[2], 7, 1); // Parameters disponibility
+        bitWrite(canMsgSnd.data[2], 6, 0);
+        bitWrite(canMsgSnd.data[2], 5, 0);
+        bitWrite(canMsgSnd.data[2], 4, 0);
+        bitWrite(canMsgSnd.data[2], 3, 0);
+        bitWrite(canMsgSnd.data[2], 2, 0);
+        bitWrite(canMsgSnd.data[2], 1, 0);
+        bitWrite(canMsgSnd.data[2], 0, 0);
         canMsgSnd.data[3] = 0x00;
         canMsgSnd.data[4] = 0x00;
         canMsgSnd.data[5] = 0x00;
         canMsgSnd.data[6] = 0x00;
-        // **************************
-
         canMsgSnd.can_id = 0x260;
         canMsgSnd.can_dlc = 7;
         CAN1.sendMessage( & canMsgSnd);
