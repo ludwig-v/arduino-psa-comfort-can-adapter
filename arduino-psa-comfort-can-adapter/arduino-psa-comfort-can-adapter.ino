@@ -895,7 +895,30 @@ void loop() {
           Serial.println();
         }
       } else if (id == 865) { // 0x361 - Personalization menu
-        // Work in progress, do not forward possible old personalization settings from CAN2004
+        bitWrite(canMsgSnd.data[0], 7, 1); // Parameters disponibility
+        bitWrite(canMsgSnd.data[0], 6, bitRead(canMsgRcv.data[2], 3)); // Beam - Status
+        bitWrite(canMsgSnd.data[0], 5, 0); // Lighting - Demand
+        bitWrite(canMsgSnd.data[0], 4, bitRead(canMsgRcv.data[3], 7)); // Adaptative lighting - Status
+        bitWrite(canMsgSnd.data[0], 3, bitRead(canMsgRcv.data[4], 1)); // SAM - Status
+        bitWrite(canMsgSnd.data[0], 2, bitRead(canMsgRcv.data[4], 2)); // Ambiance lighting - Status
+        bitWrite(canMsgSnd.data[0], 1, bitRead(canMsgRcv.data[2], 0)); // Automatic headlights - Status
+        bitWrite(canMsgSnd.data[0], 0, bitRead(canMsgRcv.data[3], 6)); // Daytime running lights - Status
+        bitWrite(canMsgSnd.data[1], 7, bitRead(canMsgRcv.data[5], 5)); // AAS - Status
+        bitWrite(canMsgSnd.data[1], 6, bitRead(canMsgRcv.data[3], 5)); // Wiper in reverse - Status
+        bitWrite(canMsgSnd.data[1], 5, bitRead(canMsgRcv.data[2], 4)); // Guide-me home lighting - Status
+        bitWrite(canMsgSnd.data[1], 4, bitRead(canMsgRcv.data[1], 2)); // Driver welcome - Status
+        canMsgSnd.data[2] = 0x00;
+        canMsgSnd.data[3] = 0x00;
+        canMsgSnd.data[4] = 0x00;
+        canMsgSnd.data[5] = 0x00;
+        canMsgSnd.data[6] = 0x00;
+        canMsgSnd.data[7] = 0x00;
+        canMsgSnd.can_id = 0x361;
+        canMsgSnd.can_dlc = 8;
+        CAN1.sendMessage( & canMsgSnd);
+        if (Send_CAN2010_ForgedMessages) {
+          CAN0.sendMessage( & canMsgSnd);
+        }
       } else if (id == 608 && len == 8) { // 0x260
         // Do not forward original message, it has been completely redesigned on CAN2010
         // Also forge missing messages from CAN2004
