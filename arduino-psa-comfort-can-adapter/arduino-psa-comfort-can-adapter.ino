@@ -894,24 +894,39 @@ void loop() {
           Serial.print(tmpVal);
           Serial.println();
         }
-      } else if (id == 865) { // 0x361 - Personalization menu
-        bitWrite(canMsgSnd.data[0], 7, 1); // Parameters disponibility
-        bitWrite(canMsgSnd.data[0], 6, bitRead(canMsgRcv.data[2], 3)); // Beam - Status
-        bitWrite(canMsgSnd.data[0], 5, 0); // Lighting - Demand
-        bitWrite(canMsgSnd.data[0], 4, bitRead(canMsgRcv.data[3], 7)); // Adaptative lighting - Status
-        bitWrite(canMsgSnd.data[0], 3, bitRead(canMsgRcv.data[4], 1)); // SAM - Status
-        bitWrite(canMsgSnd.data[0], 2, bitRead(canMsgRcv.data[4], 2)); // Ambiance lighting - Status
-        bitWrite(canMsgSnd.data[0], 1, bitRead(canMsgRcv.data[2], 0)); // Automatic headlights - Status
-        bitWrite(canMsgSnd.data[0], 0, bitRead(canMsgRcv.data[3], 6)); // Daytime running lights - Status
-        bitWrite(canMsgSnd.data[1], 7, bitRead(canMsgRcv.data[5], 5)); // AAS - Status
-        bitWrite(canMsgSnd.data[1], 6, bitRead(canMsgRcv.data[3], 5)); // Wiper in reverse - Status
-        bitWrite(canMsgSnd.data[1], 5, bitRead(canMsgRcv.data[2], 4)); // Guide-me home lighting - Status
-        bitWrite(canMsgSnd.data[1], 4, bitRead(canMsgRcv.data[1], 2)); // Driver welcome - Status
-        bitWrite(canMsgSnd.data[1], 3, 0);
-        bitWrite(canMsgSnd.data[1], 2, 0);
-        bitWrite(canMsgSnd.data[1], 1, 0);
-        bitWrite(canMsgSnd.data[1], 0, 0);
-        canMsgSnd.data[2] = 0x00;
+      } else if (id == 865) { // 0x361 - Personalization menus availability
+        bitWrite(canMsgSnd.data[0], 7, 1); // Parameters availability
+        bitWrite(canMsgSnd.data[0], 6, bitRead(canMsgRcv.data[2], 3)); // Beam
+        bitWrite(canMsgSnd.data[0], 5, 0); // Lighting
+        bitWrite(canMsgSnd.data[0], 4, bitRead(canMsgRcv.data[3], 7)); // Adaptative lighting
+        bitWrite(canMsgSnd.data[0], 3, bitRead(canMsgRcv.data[4], 1)); // SAM
+        bitWrite(canMsgSnd.data[0], 2, bitRead(canMsgRcv.data[4], 2)); // Ambiance lighting
+        bitWrite(canMsgSnd.data[0], 1, bitRead(canMsgRcv.data[2], 0)); // Automatic headlights
+        bitWrite(canMsgSnd.data[0], 0, bitRead(canMsgRcv.data[3], 6)); // Daytime running lights
+        bitWrite(canMsgSnd.data[1], 7, bitRead(canMsgRcv.data[5], 5)); // AAS
+        bitWrite(canMsgSnd.data[1], 6, bitRead(canMsgRcv.data[3], 5)); // Wiper in reverse
+        bitWrite(canMsgSnd.data[1], 5, bitRead(canMsgRcv.data[2], 4)); // Guide-me home lighting
+        bitWrite(canMsgSnd.data[1], 4, bitRead(canMsgRcv.data[1], 2)); // Driver welcome
+        bitWrite(canMsgSnd.data[1], 3, bitRead(canMsgRcv.data[2], 6)); // Motorized tailgate
+        bitWrite(canMsgSnd.data[1], 2, bitRead(canMsgRcv.data[2], 0)); // Selective openings - Rear
+        bitWrite(canMsgSnd.data[1], 1, bitRead(canMsgRcv.data[2], 7)); // Selective openings - Key
+        bitWrite(canMsgSnd.data[1], 0, 0); // Selective openings
+        bitWrite(canMsgSnd.data[2], 7, 1); // TNB - Seatbelt indicator
+        bitWrite(canMsgSnd.data[2], 6, 1); // XVV - Custom cruise limits
+        bitWrite(canMsgSnd.data[2], 5, bitRead(canMsgRcv.data[1], 4)); // Configurable button
+        bitWrite(canMsgSnd.data[2], 4, bitRead(canMsgRcv.data[2], 2)); // Automatic parking brake
+        bitWrite(canMsgSnd.data[2], 3, 0); // Sound Harmony
+        bitWrite(canMsgSnd.data[2], 2, 0); // Rear mirror index
+        bitWrite(canMsgSnd.data[2], 1, 0);
+        bitWrite(canMsgSnd.data[2], 0, 0);
+        bitWrite(canMsgSnd.data[3], 7, 1); // DSG Reset
+        bitWrite(canMsgSnd.data[3], 6, 0); // Front Collision Warning
+        bitWrite(canMsgSnd.data[3], 5, 0); // 
+        bitWrite(canMsgSnd.data[3], 4, 1); // XVV - Custom cruise limits Menu
+        bitWrite(canMsgSnd.data[3], 3, 0);
+        bitWrite(canMsgSnd.data[3], 2, bitRead(canMsgRcv.data[5], 6)); // DSG - Underinflating (3b)
+        bitWrite(canMsgSnd.data[3], 1, bitRead(canMsgRcv.data[5], 5)); // DSG - Underinflating (3b)
+        bitWrite(canMsgSnd.data[3], 0, bitRead(canMsgRcv.data[5], 4)); // DSG - Underinflating (3b)
         canMsgSnd.data[3] = 0x00;
         canMsgSnd.data[4] = 0x00;
         canMsgSnd.data[5] = 0x00;
@@ -927,26 +942,40 @@ void loop() {
         // Do not forward original message, it has been completely redesigned on CAN2010
         // Also forge missing messages from CAN2004
 
-        // Language / Units / Settings
+        // Personalization settings status
         canMsgSnd.data[0] = languageAndUnitNum;
         bitWrite(canMsgSnd.data[1], 7, (mpgMi)?1:0);
         bitWrite(canMsgSnd.data[1], 6, (TemperatureInF)?1:0);
         bitWrite(canMsgSnd.data[1], 5, 0); // Ambiance level
         bitWrite(canMsgSnd.data[1], 4, 1); // Ambiance level
         bitWrite(canMsgSnd.data[1], 3, 1); // Ambiance level
-        bitWrite(canMsgSnd.data[1], 2, 1); // Parameters disponibility
+        bitWrite(canMsgSnd.data[1], 2, 1); // Parameters availability
         bitWrite(canMsgSnd.data[1], 1, 0); // Sound Harmony
         bitWrite(canMsgSnd.data[1], 0, 0); // Sound Harmony
-        bitWrite(canMsgSnd.data[2], 7, 1); // Parameters disponibility
-        bitWrite(canMsgSnd.data[2], 6, 0);
-        bitWrite(canMsgSnd.data[2], 5, 0);
-        bitWrite(canMsgSnd.data[2], 4, 0);
-        bitWrite(canMsgSnd.data[2], 3, 0);
-        bitWrite(canMsgSnd.data[2], 2, 0);
-        bitWrite(canMsgSnd.data[2], 1, 0);
-        bitWrite(canMsgSnd.data[2], 0, 0);
-        canMsgSnd.data[3] = 0x00;
-        canMsgSnd.data[4] = 0x00;
+        bitWrite(canMsgSnd.data[2], 7, bitRead(canMsgRcv.data[1], 0)); // Automatic parking brake
+        bitWrite(canMsgSnd.data[2], 6, bitRead(canMsgRcv.data[1], 7)); // Selective openings - Key
+        bitWrite(canMsgSnd.data[2], 5, bitRead(canMsgRcv.data[1], 4)); // Selective openings
+        bitWrite(canMsgSnd.data[2], 4, bitRead(canMsgRcv.data[1], 5)); // Selective openings - Rear
+        bitWrite(canMsgSnd.data[2], 3, bitRead(canMsgRcv.data[1], 1)); // Driver Welcome
+        bitWrite(canMsgSnd.data[2], 2, bitRead(canMsgRcv.data[2], 7)); // Adaptative lighting
+        bitWrite(canMsgSnd.data[2], 1, bitRead(canMsgRcv.data[3], 6)); // Daytime running lights
+        bitWrite(canMsgSnd.data[2], 0, bitRead(canMsgRcv.data[3], 7)); // Ambiance lighting 
+        bitWrite(canMsgSnd.data[3], 7, bitRead(canMsgRcv.data[2], 5)); // Guide-me home lighting
+        bitWrite(canMsgSnd.data[3], 6, bitRead(canMsgRcv.data[2], 1)); // Duration Guide-me home lighting (2b)
+        bitWrite(canMsgSnd.data[3], 5, bitRead(canMsgRcv.data[2], 0)); // Duration Guide-me home lighting (2b)
+        bitWrite(canMsgSnd.data[3], 4, bitRead(canMsgRcv.data[2], 6)); // Beam
+        bitWrite(canMsgSnd.data[3], 3, 0); // Lighting ?
+        bitWrite(canMsgSnd.data[3], 2, 0); // Duration Lighting (2b) ?
+        bitWrite(canMsgSnd.data[3], 1, 0); // Duration Lighting (2b) ?
+        bitWrite(canMsgSnd.data[3], 0, bitRead(canMsgRcv.data[2], 4)); // Automatic headlights
+        bitWrite(canMsgSnd.data[4], 7, bitRead(canMsgRcv.data[5], 6)); // AAS
+        bitWrite(canMsgSnd.data[4], 6, bitRead(canMsgRcv.data[6], 5)); // SAM
+        bitWrite(canMsgSnd.data[4], 5, bitRead(canMsgRcv.data[5], 4)); // Wiper in reverse
+        bitWrite(canMsgSnd.data[4], 4, 0); // Motorized tailgate
+        bitWrite(canMsgSnd.data[4], 3, bitRead(canMsgRcv.data[7], 7)); // Configurable button
+        bitWrite(canMsgSnd.data[4], 2, bitRead(canMsgRcv.data[7], 6)); // Configurable button
+        bitWrite(canMsgSnd.data[4], 1, bitRead(canMsgRcv.data[7], 5)); // Configurable button
+        bitWrite(canMsgSnd.data[4], 0, bitRead(canMsgRcv.data[7], 4)); // Configurable button
         canMsgSnd.data[5] = 0x00;
         canMsgSnd.data[6] = 0x00;
         canMsgSnd.can_id = 0x260;
@@ -1158,12 +1187,13 @@ void loop() {
             Serial.println();
           }
         }
+        // Personalization settings change
         bitWrite(canMsgSnd.data[0], 7, 0);
         bitWrite(canMsgSnd.data[0], 6, 0);
         bitWrite(canMsgSnd.data[0], 5, 0);
         bitWrite(canMsgSnd.data[0], 4, 0);
         bitWrite(canMsgSnd.data[0], 3, 0);
-        bitWrite(canMsgSnd.data[0], 2, 1); // Parameters disponibility
+        bitWrite(canMsgSnd.data[0], 2, 1); // Parameters availability
         bitWrite(canMsgSnd.data[0], 1, 0);
         bitWrite(canMsgSnd.data[0], 0, 0);
         bitWrite(canMsgSnd.data[1], 7, bitRead(canMsgRcv.data[2], 6)); // Selective openings
@@ -1221,7 +1251,7 @@ void loop() {
       } else if (id == 489 && len >= 2 && CVM_Emul) { // Telematic suggested speed to fake CVM frame
         CAN0.sendMessage( & canMsgRcv);
 
-        tmpVal = (canMsgRcv.data[3] >> 2); // POI type (6b)
+        tmpVal = (canMsgRcv.data[3] >> 2); // POI type - Gen2 (6b)
 
         canMsgSnd.data[0] = canMsgRcv.data[1];
         canMsgSnd.data[1] = ((tmpVal > 0 && vehicleSpeed > (canMsgRcv.data[0] + speedMargin)) ? 0x30 : 0x10); // POI Over-speed, make speed limit blink
