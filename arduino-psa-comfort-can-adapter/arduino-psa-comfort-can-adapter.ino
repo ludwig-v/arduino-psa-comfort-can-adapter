@@ -116,7 +116,7 @@ byte speedMargin = 3;
 int engineRPM = 0;
 bool resetTrip1 = false;
 bool resetTrip2 = false;
-byte personalizationSettingsUser1[] = {0x00, 0x00, 0x00, 0x00};
+byte personalizationSettings[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
 // Language & Unit CAN2010 value
 byte languageAndUnitNum = (languageID * 4) + 128;
@@ -137,6 +137,13 @@ void setup() {
     EEPROM.update(5, 0);
     EEPROM.update(6, 0);
     EEPROM.update(7, 0);
+    EEPROM.update(10, 0);
+    EEPROM.update(11, 0);
+    EEPROM.update(12, 0);
+    EEPROM.update(13, 0);
+    EEPROM.update(14, 0);
+    EEPROM.update(15, 0);
+    EEPROM.update(16, 0);
   }
 
   if (debugCAN0 || debugCAN1 || debugGeneral) {
@@ -187,6 +194,14 @@ void setup() {
   if (tmpVal >= 1872 && tmpVal <= 2127) {
     Time_year = tmpVal;
   }
+
+  personalizationSettings[0] = EEPROM.read(10);
+  personalizationSettings[1] = EEPROM.read(11);
+  personalizationSettings[2] = EEPROM.read(12);
+  personalizationSettings[3] = EEPROM.read(13);
+  personalizationSettings[4] = EEPROM.read(14);
+  personalizationSettings[5] = EEPROM.read(15);
+  personalizationSettings[6] = EEPROM.read(16);
 
   if (hasAnalogicButtons) {
     //Initialize buttons - MENU/VOL+/VOL-
@@ -982,16 +997,17 @@ void loop() {
           bitWrite(canMsgSnd.data[4], 2, bitRead(canMsgRcv.data[7], 6)); // Configurable button
           bitWrite(canMsgSnd.data[4], 1, bitRead(canMsgRcv.data[7], 5)); // Configurable button
           bitWrite(canMsgSnd.data[4], 0, bitRead(canMsgRcv.data[7], 4)); // Configurable button
-          personalizationSettingsUser1[0] = canMsgSnd.data[1];
-          personalizationSettingsUser1[1] = canMsgSnd.data[2];
-          personalizationSettingsUser1[2] = canMsgSnd.data[3];
-          personalizationSettingsUser1[3] = canMsgSnd.data[4];
-        } else { // Cached information
+
+          personalizationSettings[7] = canMsgSnd.data[1];
+          personalizationSettings[8] = canMsgSnd.data[2];
+          personalizationSettings[9] = canMsgSnd.data[3];
+          personalizationSettings[10] = canMsgSnd.data[4];
+        } else { // Cached information if any other profile
           canMsgSnd.data[0] = languageAndUnitNum;
-          canMsgSnd.data[1] = personalizationSettingsUser1[0];
-          canMsgSnd.data[2] = personalizationSettingsUser1[1];
-          canMsgSnd.data[3] = personalizationSettingsUser1[2];
-          canMsgSnd.data[4] = personalizationSettingsUser1[3];
+          canMsgSnd.data[1] = personalizationSettings[7];
+          canMsgSnd.data[2] = personalizationSettings[8];
+          canMsgSnd.data[3] = personalizationSettings[9];
+          canMsgSnd.data[4] = personalizationSettings[10];
         }
         canMsgSnd.data[5] = 0x00;
         canMsgSnd.data[6] = 0x00;
@@ -1001,6 +1017,25 @@ void loop() {
         if (Send_CAN2010_ForgedMessages) {
           CAN0.sendMessage( & canMsgSnd);
         }
+
+        bitWrite(canMsgSnd.data[0], 7, 0);
+        bitWrite(canMsgSnd.data[0], 6, 0);
+        bitWrite(canMsgSnd.data[0], 5, 0);
+        bitWrite(canMsgSnd.data[0], 4, 0);
+        bitWrite(canMsgSnd.data[0], 3, 0);
+        bitWrite(canMsgSnd.data[0], 2, 1); // Parameters validity
+        bitWrite(canMsgSnd.data[0], 1, 0); // User profile
+        bitWrite(canMsgSnd.data[0], 0, 1); // User profile = 1
+        canMsgSnd.data[1] = personalizationSettings[0];
+        canMsgSnd.data[2] = personalizationSettings[1];
+        canMsgSnd.data[3] = personalizationSettings[2];
+        canMsgSnd.data[4] = personalizationSettings[3];
+        canMsgSnd.data[5] = personalizationSettings[4];
+        canMsgSnd.data[6] = personalizationSettings[5];
+        canMsgSnd.data[7] = personalizationSettings[6];
+        canMsgSnd.can_id = 0x15B; // Personalization frame status
+        canMsgSnd.can_dlc = 7;
+        CAN0.sendMessage( & canMsgSnd);
 
         // Economy mode simulation
         if (EconomyMode && EconomyModeEnabled) {
@@ -1192,121 +1227,140 @@ void loop() {
         canMsgSnd.can_dlc = 5;
         CAN0.sendMessage( & canMsgSnd);
       } else if (id == 0x15B && len == 8) {
-        tmpVal = canMsgRcv.data[0];
-        if (tmpVal >= 128) {
-          languageAndUnitNum = tmpVal;
-          EEPROM.update(0, languageAndUnitNum);
-
-          if (SerialEnabled) {
-            Serial.print("Telematic - Change Language and Unit (Number): ");
-            Serial.print(tmpVal);
-            Serial.println();
-          }
-
-          tmpVal = canMsgRcv.data[1];
+        if (bitRead(canMsgRcv.data[1], 2)) { // Parameters validity
+          tmpVal = canMsgRcv.data[0];
           if (tmpVal >= 128) {
-            mpgMi = true;
-            EEPROM.update(4, 1);
+            languageAndUnitNum = tmpVal;
+            EEPROM.update(0, languageAndUnitNum);
 
-            tmpVal = tmpVal - 128;
+            if (SerialEnabled) {
+              Serial.print("Telematic - Change Language and Unit (Number): ");
+              Serial.print(tmpVal);
+              Serial.println();
+            }
+
+            tmpVal = canMsgRcv.data[1];
+            if (tmpVal >= 128) {
+              mpgMi = true;
+              EEPROM.update(4, 1);
+
+              tmpVal = tmpVal - 128;
+            } else {
+              mpgMi = false;
+              EEPROM.update(4, 0);
+            }
+
+            if (tmpVal >= 64) {
+              TemperatureInF = true;
+              EEPROM.update(3, 1);
+
+              if (SerialEnabled) {
+                Serial.print("Telematic - Change Temperature Type: Fahrenheit");
+                Serial.println();
+              }
+            } else if (tmpVal >= 0) {
+              TemperatureInF = false;
+              EEPROM.update(3, 0);
+
+              if (SerialEnabled) {
+                Serial.print("Telematic - Change Temperature Type: Celcius");
+                Serial.println();
+              }
+            }
           } else {
-            mpgMi = false;
-            EEPROM.update(4, 0);
-          }
-
-          if (tmpVal >= 64) {
-            TemperatureInF = true;
-            EEPROM.update(3, 1);
-
-            if (SerialEnabled) {
-              Serial.print("Telematic - Change Temperature Type: Fahrenheit");
-              Serial.println();
+            tmpVal = ceil(tmpVal / 4.0);
+            if (canMsgRcv.data[1] >= 128) {
+              tmpVal--;
             }
-          } else if (tmpVal >= 0) {
-            TemperatureInF = false;
-            EEPROM.update(3, 0);
+            languageID = tmpVal;
+
+            // CAN2004 Head-up panel is only one-way talking, we can't change the language on it from the CAN2010 Telematic :-(
 
             if (SerialEnabled) {
-              Serial.print("Telematic - Change Temperature Type: Celcius");
+              Serial.print("Telematic - Change Language (ID): ");
+              Serial.print(tmpVal);
               Serial.println();
             }
           }
-        } else {
-          tmpVal = ceil(tmpVal / 4.0);
-          if (canMsgRcv.data[1] >= 128) {
-            tmpVal--;
-          }
-          languageID = tmpVal;
 
-          // CAN2004 Head-up panel is only one-way talking, we can't change the language on it from the CAN2010 Telematic :-(
+          // Personalization settings change
+          bitWrite(canMsgSnd.data[0], 7, 0);
+          bitWrite(canMsgSnd.data[0], 6, 0);
+          bitWrite(canMsgSnd.data[0], 5, 0);
+          bitWrite(canMsgSnd.data[0], 4, 0);
+          bitWrite(canMsgSnd.data[0], 3, 0);
+          bitWrite(canMsgSnd.data[0], 2, 0); // Parameters validity, 0 = Changed parameter(s) the BSI must take into account
+          bitWrite(canMsgSnd.data[0], 1, 0); // User profile
+          bitWrite(canMsgSnd.data[0], 0, 1); // User profile = 1
+          bitWrite(canMsgSnd.data[1], 7, bitRead(canMsgRcv.data[2], 6)); // Selective openings
+          bitWrite(canMsgSnd.data[1], 6, 1);
+          bitWrite(canMsgSnd.data[1], 5, bitRead(canMsgRcv.data[2], 4)); // Selective rear openings
+          bitWrite(canMsgSnd.data[1], 4, bitRead(canMsgRcv.data[2], 5)); // Selective openings
+          bitWrite(canMsgSnd.data[1], 3, 0);
+          bitWrite(canMsgSnd.data[1], 2, 0);
+          bitWrite(canMsgSnd.data[1], 1, bitRead(canMsgRcv.data[2], 3)); // Driver welcome
+          bitWrite(canMsgSnd.data[1], 0, bitRead(canMsgRcv.data[2], 7)); // Parking brake
+          bitWrite(canMsgSnd.data[2], 7, bitRead(canMsgRcv.data[2], 2)); // Adaptative lighting
+          bitWrite(canMsgSnd.data[2], 6, bitRead(canMsgRcv.data[3], 4)); // Beam
+          bitWrite(canMsgSnd.data[2], 5, bitRead(canMsgRcv.data[3], 7)); // Guide-me home lighting
+          bitWrite(canMsgSnd.data[2], 4, bitRead(canMsgRcv.data[3], 0)); // Automatic headlights
+          bitWrite(canMsgSnd.data[2], 3, 0);
+          bitWrite(canMsgSnd.data[2], 2, 0);
+          bitWrite(canMsgSnd.data[2], 1, bitRead(canMsgRcv.data[3], 6)); // Duration Guide-me home lighting (2b)
+          bitWrite(canMsgSnd.data[2], 0, bitRead(canMsgRcv.data[3], 5)); // Duration Guide-me home lighting (2b)
+          bitWrite(canMsgSnd.data[3], 7, bitRead(canMsgRcv.data[2], 0)); // Ambiance lighting 
+          bitWrite(canMsgSnd.data[3], 6, bitRead(canMsgRcv.data[2], 1)); // Daytime running lights
+          bitWrite(canMsgSnd.data[3], 5, 0);
+          bitWrite(canMsgSnd.data[3], 4, 0);
+          bitWrite(canMsgSnd.data[3], 3, 0);
+          bitWrite(canMsgSnd.data[3], 2, 0);
+          bitWrite(canMsgSnd.data[3], 1, 0);
+          bitWrite(canMsgSnd.data[3], 0, 0);
+          canMsgSnd.data[4] = 0x00;
+          bitWrite(canMsgSnd.data[5], 7, bitRead(canMsgRcv.data[4], 7)); // AAS
+          bitWrite(canMsgSnd.data[5], 6, bitRead(canMsgRcv.data[4], 7)); // AAS
+          bitWrite(canMsgSnd.data[5], 5, 0);
+          bitWrite(canMsgSnd.data[5], 4, bitRead(canMsgRcv.data[4], 5)); // Wiper in reverse
+          bitWrite(canMsgSnd.data[5], 3, 0);
+          bitWrite(canMsgSnd.data[5], 2, 0);
+          bitWrite(canMsgSnd.data[5], 1, 0);
+          bitWrite(canMsgSnd.data[5], 0, 0);
+          bitWrite(canMsgSnd.data[6], 7, 0);
+          bitWrite(canMsgSnd.data[6], 6, bitRead(canMsgRcv.data[4], 6)); // SAM
+          bitWrite(canMsgSnd.data[6], 5, bitRead(canMsgRcv.data[4], 6)); // SAM
+          bitWrite(canMsgSnd.data[6], 4, 0);
+          bitWrite(canMsgSnd.data[6], 3, 0);
+          bitWrite(canMsgSnd.data[6], 2, 0);
+          bitWrite(canMsgSnd.data[6], 1, 0);
+          bitWrite(canMsgSnd.data[6], 0, 0);
+          bitWrite(canMsgSnd.data[7], 7, bitRead(canMsgRcv.data[4], 3)); // Configurable button
+          bitWrite(canMsgSnd.data[7], 6, bitRead(canMsgRcv.data[4], 2)); // Configurable button
+          bitWrite(canMsgSnd.data[7], 5, bitRead(canMsgRcv.data[4], 1)); // Configurable button
+          bitWrite(canMsgSnd.data[7], 4, bitRead(canMsgRcv.data[4], 0)); // Configurable button
+          bitWrite(canMsgSnd.data[7], 3, 0);
+          bitWrite(canMsgSnd.data[7], 2, 0);
+          bitWrite(canMsgSnd.data[7], 1, 0);
+          bitWrite(canMsgSnd.data[7], 0, 0);
+          canMsgSnd.can_id = 0x15B;
+          canMsgSnd.can_dlc = 8;
+          CAN0.sendMessage( & canMsgSnd);
 
-          if (SerialEnabled) {
-            Serial.print("Telematic - Change Language (ID): ");
-            Serial.print(tmpVal);
-            Serial.println();
-          }
+          // Store personalization settings for the recurring frame
+          personalizationSettings[0] = canMsgSnd.data[1];
+          personalizationSettings[1] = canMsgSnd.data[2];
+          personalizationSettings[2] = canMsgSnd.data[3];
+          personalizationSettings[3] = canMsgSnd.data[4];
+          personalizationSettings[4] = canMsgSnd.data[5];
+          personalizationSettings[5] = canMsgSnd.data[6];
+          personalizationSettings[6] = canMsgSnd.data[7];
+          EEPROM.update(10, personalizationSettings[0]);
+          EEPROM.update(11, personalizationSettings[1]);
+          EEPROM.update(12, personalizationSettings[2]);
+          EEPROM.update(13, personalizationSettings[3]);
+          EEPROM.update(14, personalizationSettings[4]);
+          EEPROM.update(15, personalizationSettings[5]);
+          EEPROM.update(16, personalizationSettings[6]);
         }
-        // Personalization settings change
-        bitWrite(canMsgSnd.data[0], 7, 0);
-        bitWrite(canMsgSnd.data[0], 6, 0);
-        bitWrite(canMsgSnd.data[0], 5, 0);
-        bitWrite(canMsgSnd.data[0], 4, 0);
-        bitWrite(canMsgSnd.data[0], 3, 0);
-        bitWrite(canMsgSnd.data[0], 2, 1); // Parameters validity
-        bitWrite(canMsgSnd.data[0], 1, 0); // User profile
-        bitWrite(canMsgSnd.data[0], 0, 1); // User profile = 1
-        bitWrite(canMsgSnd.data[1], 7, bitRead(canMsgRcv.data[2], 6)); // Selective openings
-        bitWrite(canMsgSnd.data[1], 6, 1);
-        bitWrite(canMsgSnd.data[1], 5, bitRead(canMsgRcv.data[2], 4)); // Selective rear openings
-        bitWrite(canMsgSnd.data[1], 4, bitRead(canMsgRcv.data[2], 5)); // Selective openings
-        bitWrite(canMsgSnd.data[1], 3, 0);
-        bitWrite(canMsgSnd.data[1], 2, 0);
-        bitWrite(canMsgSnd.data[1], 1, bitRead(canMsgRcv.data[2], 3)); // Driver welcome
-        bitWrite(canMsgSnd.data[1], 0, bitRead(canMsgRcv.data[2], 7)); // Parking brake
-        bitWrite(canMsgSnd.data[2], 7, bitRead(canMsgRcv.data[2], 2)); // Adaptative lighting
-        bitWrite(canMsgSnd.data[2], 6, bitRead(canMsgRcv.data[3], 4)); // Beam
-        bitWrite(canMsgSnd.data[2], 5, bitRead(canMsgRcv.data[3], 7)); // Guide-me home lighting
-        bitWrite(canMsgSnd.data[2], 4, bitRead(canMsgRcv.data[3], 0)); // Automatic headlights
-        bitWrite(canMsgSnd.data[2], 3, 0);
-        bitWrite(canMsgSnd.data[2], 2, 0);
-        bitWrite(canMsgSnd.data[2], 1, bitRead(canMsgRcv.data[3], 6)); // Duration Guide-me home lighting (2b)
-        bitWrite(canMsgSnd.data[2], 0, bitRead(canMsgRcv.data[3], 5)); // Duration Guide-me home lighting (2b)
-        bitWrite(canMsgSnd.data[3], 7, bitRead(canMsgRcv.data[2], 0)); // Ambiance lighting 
-        bitWrite(canMsgSnd.data[3], 6, bitRead(canMsgRcv.data[2], 1)); // Daytime running lights
-        bitWrite(canMsgSnd.data[3], 5, 0);
-        bitWrite(canMsgSnd.data[3], 4, 0);
-        bitWrite(canMsgSnd.data[3], 3, 0);
-        bitWrite(canMsgSnd.data[3], 2, 0);
-        bitWrite(canMsgSnd.data[3], 1, 0);
-        bitWrite(canMsgSnd.data[3], 0, 0);
-        canMsgSnd.data[4] = 0x00;
-        bitWrite(canMsgSnd.data[5], 7, bitRead(canMsgRcv.data[4], 7)); // AAS
-        bitWrite(canMsgSnd.data[5], 6, bitRead(canMsgRcv.data[4], 7)); // AAS
-        bitWrite(canMsgSnd.data[5], 5, 0);
-        bitWrite(canMsgSnd.data[5], 4, bitRead(canMsgRcv.data[4], 5)); // Wiper in reverse
-        bitWrite(canMsgSnd.data[5], 3, 0);
-        bitWrite(canMsgSnd.data[5], 2, 0);
-        bitWrite(canMsgSnd.data[5], 1, 0);
-        bitWrite(canMsgSnd.data[5], 0, 0);
-        bitWrite(canMsgSnd.data[6], 7, 0);
-        bitWrite(canMsgSnd.data[6], 6, bitRead(canMsgRcv.data[4], 6)); // SAM
-        bitWrite(canMsgSnd.data[6], 5, bitRead(canMsgRcv.data[4], 6)); // SAM
-        bitWrite(canMsgSnd.data[6], 4, 0);
-        bitWrite(canMsgSnd.data[6], 3, 0);
-        bitWrite(canMsgSnd.data[6], 2, 0);
-        bitWrite(canMsgSnd.data[6], 1, 0);
-        bitWrite(canMsgSnd.data[6], 0, 0);
-        bitWrite(canMsgSnd.data[7], 7, bitRead(canMsgRcv.data[4], 3)); // Configurable button
-        bitWrite(canMsgSnd.data[7], 6, bitRead(canMsgRcv.data[4], 2)); // Configurable button
-        bitWrite(canMsgSnd.data[7], 5, bitRead(canMsgRcv.data[4], 1)); // Configurable button
-        bitWrite(canMsgSnd.data[7], 4, bitRead(canMsgRcv.data[4], 0)); // Configurable button
-        bitWrite(canMsgSnd.data[7], 3, 0);
-        bitWrite(canMsgSnd.data[7], 2, 0);
-        bitWrite(canMsgSnd.data[7], 1, 0);
-        bitWrite(canMsgSnd.data[7], 0, 0);
-        canMsgSnd.can_id = 0x15B;
-        canMsgSnd.can_dlc = 8;
-        CAN0.sendMessage( & canMsgSnd);
       } else if (id == 0x1E9 && len >= 2 && CVM_Emul) { // Telematic suggested speed to fake CVM frame
         CAN0.sendMessage( & canMsgRcv);
 
