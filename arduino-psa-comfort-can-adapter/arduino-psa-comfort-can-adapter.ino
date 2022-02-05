@@ -789,14 +789,21 @@ void loop() {
         }
 
         CAN1.sendMessage( & canMsgRcv);
-      } else if (id == 0x168 && len == 8) { // Instrument Panel
-        canMsgSnd.data[0] = canMsgRcv.data[0];
-        canMsgSnd.data[1] = canMsgRcv.data[1];
-        canMsgSnd.data[2] = canMsgRcv.data[5]; // Investigation to do
+      } else if (id == 0x168 && len == 8) { // Instrument Panel - WIP
+        canMsgSnd.data[0] = canMsgRcv.data[0]; // Alerts
+        canMsgSnd.data[1] = canMsgRcv.data[1]; 
+        canMsgSnd.data[2] = canMsgRcv.data[2];
         canMsgSnd.data[3] = canMsgRcv.data[3];
-        canMsgSnd.data[4] = canMsgRcv.data[5]; // Investigation to do
-        canMsgSnd.data[5] = canMsgRcv.data[5]; // Investigation to do
-        canMsgSnd.data[6] = canMsgRcv.data[6];
+        canMsgSnd.data[4] = canMsgRcv.data[4];
+        canMsgSnd.data[5] = canMsgRcv.data[5];
+        bitWrite(canMsgSnd.data[6], 7, 0);
+        bitWrite(canMsgSnd.data[6], 6, 1); // Ambiance
+        bitWrite(canMsgSnd.data[6], 5, 1); // EMF availability
+        bitWrite(canMsgSnd.data[6], 4, bitRead(canMsgRcv.data[5], 0)); // Gearbox report while driving
+        bitWrite(canMsgSnd.data[6], 3, bitRead(canMsgRcv.data[6], 7)); // Gearbox report while driving
+        bitWrite(canMsgSnd.data[6], 2, bitRead(canMsgRcv.data[6], 6)); // Gearbox report while driving
+        bitWrite(canMsgSnd.data[6], 1, bitRead(canMsgRcv.data[6], 5)); // Gearbox report while driving
+        bitWrite(canMsgSnd.data[6], 0, 0);
         canMsgSnd.data[7] = canMsgRcv.data[7];
         canMsgSnd.can_id = 0x168;
         canMsgSnd.can_dlc = 8;
@@ -824,20 +831,47 @@ void loop() {
         CAN0.sendMessage( & canMsgSnd);
       } else if (id == 0x128 && len == 8) { // Instrument Panel
         canMsgSnd.data[0] = canMsgRcv.data[4]; // Main driving lights
-        canMsgSnd.data[1] = canMsgRcv.data[6];
+        bitWrite(canMsgSnd.data[1], 7, bitRead(canMsgRcv.data[6], 7)); // Gearbox report
+        bitWrite(canMsgSnd.data[1], 6, bitRead(canMsgRcv.data[6], 6)); // Gearbox report 
+        bitWrite(canMsgSnd.data[1], 5, bitRead(canMsgRcv.data[6], 5)); // Gearbox report
+        bitWrite(canMsgSnd.data[1], 4, bitRead(canMsgRcv.data[6], 4)); // Gearbox report
+        bitWrite(canMsgSnd.data[1], 3, bitRead(canMsgRcv.data[6], 3)); // Gearbox report while driving
+        bitWrite(canMsgSnd.data[1], 2, bitRead(canMsgRcv.data[6], 2)); // Gearbox report while driving
+        bitWrite(canMsgSnd.data[1], 1, bitRead(canMsgRcv.data[6], 1)); // Gearbox report while driving
+        bitWrite(canMsgSnd.data[1], 0, bitRead(canMsgRcv.data[6], 0)); // Gearbox report blinking
         canMsgSnd.data[2] = canMsgRcv.data[7];
-
-        tmpVal = canMsgRcv.data[0];
-        if (tmpVal == 96) { // Handbrake
-          canMsgSnd.data[3] = 0x02;
-        } else {
-          canMsgSnd.data[3] = 0x00;
-        }
-
-        canMsgSnd.data[4] = 0x00; // ESP - Investigation to do
-        canMsgSnd.data[5] = 0x00; // Low Fuel - Investigation to do
-        canMsgSnd.data[6] = 0x04;
-        canMsgSnd.data[7] = 0x00;
+        bitWrite(canMsgSnd.data[3], 7, bitRead(canMsgRcv.data[1], 7)); // Service
+        bitWrite(canMsgSnd.data[3], 6, bitRead(canMsgRcv.data[1], 6)); // STOP
+        bitWrite(canMsgSnd.data[3], 5, bitRead(canMsgRcv.data[2], 5)); // Child security
+        bitWrite(canMsgSnd.data[3], 4, bitRead(canMsgRcv.data[0], 7)); // Passenger Airbag
+        bitWrite(canMsgSnd.data[3], 3, bitRead(canMsgRcv.data[3], 2)); // Foot on brake
+        bitWrite(canMsgSnd.data[3], 2, bitRead(canMsgRcv.data[3], 1)); // Foot on brake
+        bitWrite(canMsgSnd.data[3], 1, bitRead(canMsgRcv.data[0], 5)); // Parking brake
+        bitWrite(canMsgSnd.data[3], 0, 0); // Electric parking brake
+        bitWrite(canMsgSnd.data[4], 7, bitRead(canMsgRcv.data[0], 2)); // Diesel pre-heating
+        bitWrite(canMsgSnd.data[4], 6, bitRead(canMsgRcv.data[1], 4)); // Opening open
+        bitWrite(canMsgSnd.data[4], 5, bitRead(canMsgRcv.data[3], 4)); // Automatic parking
+        bitWrite(canMsgSnd.data[4], 4, bitRead(canMsgRcv.data[3], 3)); // Automatic parking blinking
+        bitWrite(canMsgSnd.data[4], 3, 0); // Automatic high beam
+        bitWrite(canMsgSnd.data[4], 2, bitRead(canMsgRcv.data[2], 4)); // ESP Disabled
+        bitWrite(canMsgSnd.data[4], 1, bitRead(canMsgRcv.data[2], 3)); // ESP active
+        bitWrite(canMsgSnd.data[4], 0, bitRead(canMsgRcv.data[2], 2)); // Active suspension
+        bitWrite(canMsgSnd.data[5], 7, bitRead(canMsgRcv.data[0], 4)); // Low fuel
+        bitWrite(canMsgSnd.data[5], 6, bitRead(canMsgRcv.data[0], 6)); // Driver seatbelt
+        bitWrite(canMsgSnd.data[5], 5, bitRead(canMsgRcv.data[3], 7)); // Driver seatbelt blinking
+        bitWrite(canMsgSnd.data[5], 4, bitRead(canMsgRcv.data[0], 1)); // Passenger seatbelt
+        bitWrite(canMsgSnd.data[5], 3, bitRead(canMsgRcv.data[3], 6)); // Passenger seatbelt Blinking
+        bitWrite(canMsgSnd.data[5], 2, 0); // SCR
+        bitWrite(canMsgSnd.data[5], 1, 0); // SCR
+        bitWrite(canMsgSnd.data[5], 0, bitRead(canMsgRcv.data[5], 6)); // Rear left seatbelt
+        bitWrite(canMsgSnd.data[6], 7, bitRead(canMsgRcv.data[5], 5)); // Rear seatbelt left blinking
+        bitWrite(canMsgSnd.data[6], 6, bitRead(canMsgRcv.data[5], 2)); // Rear right seatbelt
+        bitWrite(canMsgSnd.data[6], 5, bitRead(canMsgRcv.data[5], 1)); // Rear right seatbelt blinking
+        bitWrite(canMsgSnd.data[6], 4, bitRead(canMsgRcv.data[5], 4)); // Rear middle seatbelt
+        bitWrite(canMsgSnd.data[6], 3, bitRead(canMsgRcv.data[5], 3)); // Rear middle seatbelt blinking
+        bitWrite(canMsgSnd.data[6], 2, bitRead(canMsgRcv.data[5], 7)); // Instrument Panel ON
+        bitWrite(canMsgSnd.data[6], 1, bitRead(canMsgRcv.data[2], 1)); // Warnings
+        bitWrite(canMsgSnd.data[6], 0, 0); // Passenger protection
         canMsgSnd.can_id = 0x128;
         canMsgSnd.can_dlc = 8;
 
