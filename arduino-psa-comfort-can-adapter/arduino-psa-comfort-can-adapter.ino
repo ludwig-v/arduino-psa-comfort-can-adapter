@@ -839,7 +839,19 @@ void loop() {
         bitWrite(canMsgSnd.data[1], 2, bitRead(canMsgRcv.data[6], 2)); // Gearbox report while driving
         bitWrite(canMsgSnd.data[1], 1, bitRead(canMsgRcv.data[6], 1)); // Gearbox report while driving
         bitWrite(canMsgSnd.data[1], 0, bitRead(canMsgRcv.data[6], 0)); // Gearbox report blinking
-        canMsgSnd.data[2] = canMsgRcv.data[7];
+        bitWrite(canMsgSnd.data[2], 7, bitRead(canMsgRcv.data[7], 7)); // Arrow blinking
+        bitWrite(canMsgSnd.data[2], 6, bitRead(canMsgRcv.data[7], 6)); // BVA mode
+        bitWrite(canMsgSnd.data[2], 5, bitRead(canMsgRcv.data[7], 5)); // BVA mode
+        bitWrite(canMsgSnd.data[2], 4, bitRead(canMsgRcv.data[7], 4)); // BVA mode
+        bitWrite(canMsgSnd.data[2], 3, bitRead(canMsgRcv.data[7], 3)); // Arrow type
+        bitWrite(canMsgSnd.data[2], 2, bitRead(canMsgRcv.data[7], 2)); // Arrow type
+        if (bitRead(canMsgRcv.data[7], 1) == 1 && bitRead(canMsgRcv.data[7], 0) == 0) { // BVMP to BVA
+          bitWrite(canMsgSnd.data[2], 1, 0); // Gearbox type
+          bitWrite(canMsgSnd.data[2], 0, 0); // Gearbox type
+        } else {
+          bitWrite(canMsgSnd.data[2], 1, bitRead(canMsgRcv.data[7], 1)); // Gearbox type
+          bitWrite(canMsgSnd.data[2], 0, bitRead(canMsgRcv.data[7], 0)); // Gearbox type
+        }
         bitWrite(canMsgSnd.data[3], 7, bitRead(canMsgRcv.data[1], 7)); // Service
         bitWrite(canMsgSnd.data[3], 6, bitRead(canMsgRcv.data[1], 6)); // STOP
         bitWrite(canMsgSnd.data[3], 5, bitRead(canMsgRcv.data[2], 5)); // Child security
@@ -872,6 +884,7 @@ void loop() {
         bitWrite(canMsgSnd.data[6], 2, bitRead(canMsgRcv.data[5], 7)); // Instrument Panel ON
         bitWrite(canMsgSnd.data[6], 1, bitRead(canMsgRcv.data[2], 1)); // Warnings
         bitWrite(canMsgSnd.data[6], 0, 0); // Passenger protection
+        canMsgSnd.data[7] = 0x00;
         canMsgSnd.can_id = 0x128;
         canMsgSnd.can_dlc = 8;
 
