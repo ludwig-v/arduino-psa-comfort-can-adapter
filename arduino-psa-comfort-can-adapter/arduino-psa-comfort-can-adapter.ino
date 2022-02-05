@@ -116,6 +116,7 @@ byte speedMargin = 3;
 int engineRPM = 0;
 bool resetTrip1 = false;
 bool resetTrip2 = false;
+byte personalizationSettingsUser1[] = {0x00, 0x00, 0x00, 0x00};
 
 // Language & Unit CAN2010 value
 byte languageAndUnitNum = (languageID * 4) + 128;
@@ -937,10 +938,8 @@ void loop() {
         bitWrite(canMsgSnd.data[3], 0, bitRead(canMsgRcv.data[5], 4)); // DSG - Underinflating (3b)
         canMsgSnd.data[4] = 0x00;
         canMsgSnd.data[5] = 0x00;
-        canMsgSnd.data[6] = 0x00;
-        canMsgSnd.data[7] = 0x00;
         canMsgSnd.can_id = 0x361;
-        canMsgSnd.can_dlc = 8;
+        canMsgSnd.can_dlc = 6;
         CAN1.sendMessage( & canMsgSnd);
         if (Send_CAN2010_ForgedMessages) {
           CAN0.sendMessage( & canMsgSnd);
@@ -983,14 +982,24 @@ void loop() {
           bitWrite(canMsgSnd.data[4], 2, bitRead(canMsgRcv.data[7], 6)); // Configurable button
           bitWrite(canMsgSnd.data[4], 1, bitRead(canMsgRcv.data[7], 5)); // Configurable button
           bitWrite(canMsgSnd.data[4], 0, bitRead(canMsgRcv.data[7], 4)); // Configurable button
-          canMsgSnd.data[5] = 0x00;
-          canMsgSnd.data[6] = 0x00;
-          canMsgSnd.can_id = 0x260;
-          canMsgSnd.can_dlc = 7;
-          CAN1.sendMessage( & canMsgSnd);
-          if (Send_CAN2010_ForgedMessages) {
-            CAN0.sendMessage( & canMsgSnd);
-          }
+          personalizationSettingsUser1[0] = canMsgSnd.data[1];
+          personalizationSettingsUser1[1] = canMsgSnd.data[2];
+          personalizationSettingsUser1[2] = canMsgSnd.data[3];
+          personalizationSettingsUser1[3] = canMsgSnd.data[4];
+        } else { // Cached information
+          canMsgSnd.data[0] = languageAndUnitNum;
+          canMsgSnd.data[1] = personalizationSettingsUser1[0];
+          canMsgSnd.data[2] = personalizationSettingsUser1[1];
+          canMsgSnd.data[3] = personalizationSettingsUser1[2];
+          canMsgSnd.data[4] = personalizationSettingsUser1[3];
+        }
+        canMsgSnd.data[5] = 0x00;
+        canMsgSnd.data[6] = 0x00;
+        canMsgSnd.can_id = 0x260;
+        canMsgSnd.can_dlc = 7;
+        CAN1.sendMessage( & canMsgSnd);
+        if (Send_CAN2010_ForgedMessages) {
+          CAN0.sendMessage( & canMsgSnd);
         }
 
         // Economy mode simulation
@@ -1243,7 +1252,7 @@ void loop() {
         bitWrite(canMsgSnd.data[0], 5, 0);
         bitWrite(canMsgSnd.data[0], 4, 0);
         bitWrite(canMsgSnd.data[0], 3, 0);
-        bitWrite(canMsgSnd.data[0], 2, 0);
+        bitWrite(canMsgSnd.data[0], 2, 1); // Parameters validity
         bitWrite(canMsgSnd.data[0], 1, 0); // User profile
         bitWrite(canMsgSnd.data[0], 0, 1); // User profile = 1
         bitWrite(canMsgSnd.data[1], 7, bitRead(canMsgRcv.data[2], 6)); // Selective openings
