@@ -61,6 +61,7 @@ bool mpgMi = false;
 bool kmL = false; // km/L statistics instead of L/100
 bool fixedBrightness = false; // Force Brightness value in case the calibration does not match your brightness value range
 bool noFMUX = false; // If you don't have any useful button on the main panel, turn the SRC button on steering wheel commands into MENU - only works for CAN2010 SMEG / NAC -
+byte steeringWheelCommands_Type = 0; // noFMUX extra setting : 0 = Generic, 1 = C4 I / C5 X7 NAV+MUSIC+APPS+PHONE mapping, 2 = C4 I / C5 X7 MENU mapping
 byte languageID = 0; // Default is FR: 0 - EN: 1 / DE: 2 / ES: 3 / IT: 4 / PT: 5 / NL: 6 / BR: 9 / TR: 12 / RU: 14
 bool listenCAN2004Language = false; // Switch language on CAN2010 devices if changed on supported CAN2004 devices, default: no
 byte Time_day = 1; // Default day if the RTC module is not configured
@@ -102,7 +103,6 @@ bool CentralAerator = false;
 bool AutoFan = false;
 byte FanPosition = 0;
 bool MaintenanceDisplayed = false;
-byte carType = 0;
 int buttonState = 0;
 int lastButtonState = 0;
 long lastDebounceTime = 0;
@@ -510,7 +510,7 @@ void loop() {
         tmpVal = canMsgRcv.data[0];
         scrollValue = canMsgRcv.data[1];
 
-        if (tmpVal == 2 && noFMUX && carType == 0) { // Replace SRC by MENU (Valid for 208, C-Elysee calibrations for example)
+        if (tmpVal == 2 && noFMUX && steeringWheelCommands_Type == 0) { // Replace SRC by MENU (Valid for 208, C-Elysee calibrations for example)
           canMsgSnd.data[0] = 0x80; // MENU button
           canMsgSnd.data[1] = 0x00;
           canMsgSnd.data[2] = 0x00;
@@ -545,10 +545,7 @@ void loop() {
             }
           }
         }
-      } else if (id == 0xA2 && noFMUX) { // Steering wheel commands - C4 I
-        // Replace RD45 commands (Valid for C4 II calibration for example)
-        carType = 1;
-
+      } else if (id == 0xA2 && noFMUX && steeringWheelCommands_Type == 1) { // Steering wheel commands - C4 I / C5 X7
         tmpVal = canMsgRcv.data[1];
 
         if (tmpVal == 8) { // MENU button pushed > MUSIC
@@ -588,6 +585,46 @@ void loop() {
           canMsgSnd.data[6] = 0x00; // Volume potentiometer button
           canMsgSnd.data[7] = 0x00;
         } else {
+          CAN1.sendMessage( & canMsgRcv);
+
+          // Fake FMUX Buttons in the car
+          canMsgSnd.data[0] = 0x00;
+          canMsgSnd.data[1] = 0x00;
+          canMsgSnd.data[2] = 0x00;
+          canMsgSnd.data[3] = 0x00;
+          canMsgSnd.data[4] = 0x00;
+          canMsgSnd.data[5] = 0x02;
+          canMsgSnd.data[6] = 0x00; // Volume potentiometer button
+          canMsgSnd.data[7] = 0x00;
+        }
+        canMsgSnd.can_id = 0x122;
+        canMsgSnd.can_dlc = 8;
+        CAN1.sendMessage( & canMsgSnd);
+        if (Send_CAN2010_ForgedMessages) {
+          CAN0.sendMessage( & canMsgSnd);
+        }
+      } else if (id == 0xA2 && noFMUX && steeringWheelCommands_Type == 2) { // Steering wheel commands - C4 I / C5 X7
+        tmpVal = canMsgRcv.data[1];
+
+        if (tmpVal == 0x08) { // MENU button pushed > MENU
+          canMsgSnd.data[0] = 0x80;
+          canMsgSnd.data[1] = 0x00;
+          canMsgSnd.data[2] = 0x00;
+          canMsgSnd.data[3] = 0x00;
+          canMsgSnd.data[4] = 0x00;
+          canMsgSnd.data[5] = 0x02;
+          canMsgSnd.data[6] = 0x00; // Volume potentiometer button
+          canMsgSnd.data[7] = 0x00;
+        } else if (tmpVal == 0x40) { // SRC button pushed > SRC
+          canMsgSnd.data[0] = 0x40;
+          canMsgSnd.data[1] = 0x00;
+          canMsgSnd.data[2] = 0x00;
+          canMsgSnd.data[3] = 0x00;
+          canMsgSnd.data[4] = 0x00;
+          canMsgSnd.data[5] = 0x02;
+          canMsgSnd.data[6] = 0x00; // Volume potentiometer button
+          canMsgSnd.data[7] = 0x00;
+        } else if (tmpVal != 0x10 && tmpVal != 0x20) {
           CAN1.sendMessage( & canMsgRcv);
 
           // Fake FMUX Buttons in the car
