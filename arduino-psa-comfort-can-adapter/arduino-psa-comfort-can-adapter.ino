@@ -991,9 +991,9 @@ void loop() {
         bitWrite(canMsgSnd.data[2], 0, 0);
         bitWrite(canMsgSnd.data[3], 7, 1); // DSG Reset
         bitWrite(canMsgSnd.data[3], 6, 0); // Front Collision Warning
-        bitWrite(canMsgSnd.data[3], 5, 0); // 
+        bitWrite(canMsgSnd.data[3], 5, 0);
         bitWrite(canMsgSnd.data[3], 4, 1); // XVV - Custom cruise limits Menu
-        bitWrite(canMsgSnd.data[3], 3, 0);
+        bitWrite(canMsgSnd.data[3], 3, 1); // Recommended speed indicator
         bitWrite(canMsgSnd.data[3], 2, bitRead(canMsgRcv.data[5], 6)); // DSG - Underinflating (3b)
         bitWrite(canMsgSnd.data[3], 1, bitRead(canMsgRcv.data[5], 5)); // DSG - Underinflating (3b)
         bitWrite(canMsgSnd.data[3], 0, bitRead(canMsgRcv.data[5], 4)); // DSG - Underinflating (3b)
