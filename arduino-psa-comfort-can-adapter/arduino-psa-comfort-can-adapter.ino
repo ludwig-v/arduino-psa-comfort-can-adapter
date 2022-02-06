@@ -112,7 +112,6 @@ long debounceDelay = 100;
 int daysSinceYearStart = 0;
 unsigned long customTimeStamp = 0;
 int vehicleSpeed = 0;
-byte speedMargin = 3;
 int engineRPM = 0;
 bool resetTrip1 = false;
 bool resetTrip2 = false;
@@ -470,7 +469,7 @@ void loop() {
         canMsgSnd.can_dlc = 8;
         CAN0.sendMessage( & canMsgSnd);
       } else if (id == 0xB6 && len == 8) {
-        engineRPM = (canMsgRcv.data[2] << 8) | (canMsgRcv.data[3] << 3);
+        engineRPM = ((canMsgRcv.data[0] << 8) | canMsgRcv.data[1]) / 100;
         if (engineRPM > 0) {
           EngineRunning = true;
         } else {
@@ -1414,7 +1413,7 @@ void loop() {
         tmpVal = (canMsgRcv.data[3] >> 2); // POI type - Gen2 (6b)
 
         canMsgSnd.data[0] = canMsgRcv.data[1];
-        canMsgSnd.data[1] = ((tmpVal > 0 && vehicleSpeed > (canMsgRcv.data[0] + speedMargin)) ? 0x30 : 0x10); // POI Over-speed, make speed limit blink
+        canMsgSnd.data[1] = ((tmpVal > 0 && vehicleSpeed > canMsgRcv.data[0]) ? 0x30 : 0x10); // POI Over-speed, make speed limit blink
         canMsgSnd.data[2] = 0x00;
         canMsgSnd.data[3] = 0x00;
         canMsgSnd.data[4] = 0x7C;
