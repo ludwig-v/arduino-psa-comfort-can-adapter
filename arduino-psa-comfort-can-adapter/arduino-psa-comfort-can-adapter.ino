@@ -1,7 +1,7 @@
 /*
 Copyright 2019-2022, Ludwig V. <https://github.com/ludwig-v>
 Copyright 2021, Nick V. (V3nn3tj3) <https://github.com/v3nn3tj3>
-  
+
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
@@ -116,6 +116,7 @@ int engineRPM = 0;
 bool resetTrip1 = false;
 bool resetTrip2 = false;
 byte personalizationSettings[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+bool TelematicPresent = false;
 
 // Language & Unit CAN2010 value
 byte languageAndUnitNum = (languageID * 4) + 128;
@@ -815,7 +816,7 @@ void loop() {
         CAN1.sendMessage( & canMsgRcv);
       } else if (id == 0x168 && len == 8) { // Instrument Panel - WIP
         canMsgSnd.data[0] = canMsgRcv.data[0]; // Alerts
-        canMsgSnd.data[1] = canMsgRcv.data[1]; 
+        canMsgSnd.data[1] = canMsgRcv.data[1];
         canMsgSnd.data[2] = canMsgRcv.data[2];
         canMsgSnd.data[3] = canMsgRcv.data[3];
         canMsgSnd.data[4] = canMsgRcv.data[4];
@@ -856,7 +857,7 @@ void loop() {
       } else if (id == 0x128 && len == 8) { // Instrument Panel
         canMsgSnd.data[0] = canMsgRcv.data[4]; // Main driving lights
         bitWrite(canMsgSnd.data[1], 7, bitRead(canMsgRcv.data[6], 7)); // Gearbox report
-        bitWrite(canMsgSnd.data[1], 6, bitRead(canMsgRcv.data[6], 6)); // Gearbox report 
+        bitWrite(canMsgSnd.data[1], 6, bitRead(canMsgRcv.data[6], 6)); // Gearbox report
         bitWrite(canMsgSnd.data[1], 5, bitRead(canMsgRcv.data[6], 5)); // Gearbox report
         bitWrite(canMsgSnd.data[1], 4, bitRead(canMsgRcv.data[6], 4)); // Gearbox report
         bitWrite(canMsgSnd.data[1], 3, bitRead(canMsgRcv.data[6], 3)); // Gearbox report while driving
@@ -1051,7 +1052,7 @@ void loop() {
           bitWrite(canMsgSnd.data[2], 3, bitRead(canMsgRcv.data[1], 1)); // Driver Welcome
           bitWrite(canMsgSnd.data[2], 2, bitRead(canMsgRcv.data[2], 7)); // Adaptative lighting
           bitWrite(canMsgSnd.data[2], 1, bitRead(canMsgRcv.data[3], 6)); // Daytime running lights
-          bitWrite(canMsgSnd.data[2], 0, bitRead(canMsgRcv.data[3], 7)); // Ambiance lighting 
+          bitWrite(canMsgSnd.data[2], 0, bitRead(canMsgRcv.data[3], 7)); // Ambiance lighting
           bitWrite(canMsgSnd.data[3], 7, bitRead(canMsgRcv.data[2], 5)); // Guide-me home lighting
           bitWrite(canMsgSnd.data[3], 6, bitRead(canMsgRcv.data[2], 1)); // Duration Guide-me home lighting (2b)
           bitWrite(canMsgSnd.data[3], 5, bitRead(canMsgRcv.data[2], 0)); // Duration Guide-me home lighting (2b)
@@ -1108,17 +1109,19 @@ void loop() {
         canMsgSnd.can_dlc = 8;
         CAN0.sendMessage( & canMsgSnd);
 
-        canMsgSnd.data[0] = 0x08;
-        canMsgSnd.data[1] = 0x10;
-        canMsgSnd.data[2] = 0xFF;
-        canMsgSnd.data[3] = 0xFF;
-        canMsgSnd.data[4] = 0x7F;
-        canMsgSnd.data[5] = 0xFF;
-        canMsgSnd.data[6] = 0x00;
-        canMsgSnd.data[7] = 0x00;
-        canMsgSnd.can_id = 0x167; // Fake EMF status frame
-        canMsgSnd.can_dlc = 8;
-        CAN0.sendMessage( & canMsgSnd);
+        if (!TelematicPresent && Ignition) {
+          canMsgSnd.data[0] = 0x08;
+          canMsgSnd.data[1] = 0x10;
+          canMsgSnd.data[2] = 0xFF;
+          canMsgSnd.data[3] = 0xFF;
+          canMsgSnd.data[4] = 0x7F;
+          canMsgSnd.data[5] = 0xFF;
+          canMsgSnd.data[6] = 0x00;
+          canMsgSnd.data[7] = 0x00;
+          canMsgSnd.can_id = 0x167; // Fake EMF status frame
+          canMsgSnd.can_dlc = 8;
+          CAN0.sendMessage( & canMsgSnd);
+        }
 
         // Economy mode simulation
         if (EconomyMode && EconomyModeEnabled) {
@@ -1270,6 +1273,8 @@ void loop() {
           Serial.println();
         }
       } else if (id == 0x1A9 && len == 8) {
+        TelematicPresent = true;
+
         // bitRead(canMsgRcv.data[1], 7); // Stop Check
         // bitRead(canMsgRcv.data[0], 7); // Black panel
         resetTrip1 = bitRead(canMsgRcv.data[0], 1); // Reset Trip 1
@@ -1280,19 +1285,21 @@ void loop() {
         // bitRead(canMsgRcv.data[5], 0); // Check
         // bitRead(canMsgRcv.data[6], 7); // Start&Stop
 
-        canMsgSnd.data[0] = 0x08;
-        bitWrite(canMsgSnd.data[0], 7, bitRead(canMsgRcv.data[0], 1)); // Reset Trip 1
-        bitWrite(canMsgSnd.data[0], 6, bitRead(canMsgRcv.data[0], 0)); // Reset Trip 2
-        canMsgSnd.data[1] = 0x10;
-        canMsgSnd.data[2] = 0xFF;
-        canMsgSnd.data[3] = 0xFF;
-        canMsgSnd.data[4] = 0x7F;
-        canMsgSnd.data[5] = 0xFF;
-        canMsgSnd.data[6] = 0x00;
-        canMsgSnd.data[7] = 0x00;
-        canMsgSnd.can_id = 0x167; // Fake EMF Status frame
-        canMsgSnd.can_dlc = 8;
-        CAN0.sendMessage( & canMsgSnd);
+        if (Ignition) {
+          canMsgSnd.data[0] = 0x08;
+          bitWrite(canMsgSnd.data[0], 7, bitRead(canMsgRcv.data[0], 1)); // Reset Trip 1
+          bitWrite(canMsgSnd.data[0], 6, bitRead(canMsgRcv.data[0], 0)); // Reset Trip 2
+          canMsgSnd.data[1] = 0x10;
+          canMsgSnd.data[2] = 0xFF;
+          canMsgSnd.data[3] = 0xFF;
+          canMsgSnd.data[4] = 0x7F;
+          canMsgSnd.data[5] = 0xFF;
+          canMsgSnd.data[6] = 0x00;
+          canMsgSnd.data[7] = 0x00;
+          canMsgSnd.can_id = 0x167; // Fake EMF Status frame
+          canMsgSnd.can_dlc = 8;
+          CAN0.sendMessage( & canMsgSnd);
+        }
       } else if (id == 0x31C && len == 5) { // MATT status
         canMsgSnd.data[0] = canMsgRcv.data[0];
         // Rewrite if necessary to make BTEL commands working
@@ -1391,7 +1398,7 @@ void loop() {
           bitWrite(canMsgSnd.data[2], 2, 0);
           bitWrite(canMsgSnd.data[2], 1, bitRead(canMsgRcv.data[3], 6)); // Duration Guide-me home lighting (2b)
           bitWrite(canMsgSnd.data[2], 0, bitRead(canMsgRcv.data[3], 5)); // Duration Guide-me home lighting (2b)
-          bitWrite(canMsgSnd.data[3], 7, bitRead(canMsgRcv.data[2], 0)); // Ambiance lighting 
+          bitWrite(canMsgSnd.data[3], 7, bitRead(canMsgRcv.data[2], 0)); // Ambiance lighting
           bitWrite(canMsgSnd.data[3], 6, bitRead(canMsgRcv.data[2], 1)); // Daytime running lights
           bitWrite(canMsgSnd.data[3], 5, 0);
           bitWrite(canMsgSnd.data[3], 4, 0);
@@ -1532,7 +1539,7 @@ void loop() {
 }
 
 int daysSinceYearStartFct() {
-  // Given a day, month, and year (4 digit), returns 
+  // Given a day, month, and year (4 digit), returns
   // the day of year. Errors return 999.
   int daysInMonth[] = {31,28,31,30,31,30,31,31,30,31,30,31};
   // Check if it is a leap year, this is confusing business
@@ -1547,12 +1554,12 @@ int daysSinceYearStartFct() {
       }
     }
    }
-  
+
   int doy = 0;
   for (int i = 0; i < month() - 1; i++) {
     doy += daysInMonth[i];
   }
-  
+
   doy += day();
   return doy;
 }
