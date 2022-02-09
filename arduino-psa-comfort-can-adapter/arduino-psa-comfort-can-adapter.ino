@@ -258,13 +258,13 @@ void setup() {
 
   // Send fake EMF version
   canMsgSnd.data[0] = 0x25;
-  canMsgSnd.data[1] = 0x1D;
-  canMsgSnd.data[2] = 0x03;
-  canMsgSnd.data[3] = 0x06;
-  canMsgSnd.data[4] = 0x08;
-  canMsgSnd.data[5] = 0x00;
+  canMsgSnd.data[1] = 0x0A;
+  canMsgSnd.data[2] = 0x0B;
+  canMsgSnd.data[3] = 0x04;
+  canMsgSnd.data[4] = 0x0C;
+  canMsgSnd.data[5] = 0x01;
   canMsgSnd.data[6] = 0x20;
-  canMsgSnd.data[7] = 0x10;
+  canMsgSnd.data[7] = 0x11;
   canMsgSnd.can_id = 0x5E5;
   canMsgSnd.can_dlc = 8;
   CAN0.sendMessage( & canMsgSnd);
@@ -456,26 +456,14 @@ void loop() {
           canMsgRcv.data[3] = 0x28; // Set fixed value to avoid low brightness due to incorrect CAN2010 Telematic calibration
         }
         CAN1.sendMessage( & canMsgRcv);
-
-        canMsgSnd.data[0] = 0x08;
-        canMsgSnd.data[1] = 0x10;
-        canMsgSnd.data[2] = 0xFF;
-        canMsgSnd.data[3] = 0xFF;
-        canMsgSnd.data[4] = 0x7F;
-        canMsgSnd.data[5] = 0xFF;
-        canMsgSnd.data[6] = 0x00;
-        canMsgSnd.data[7] = 0x00;
-        canMsgSnd.can_id = 0x167; // Fake EMF status frame
-        canMsgSnd.can_dlc = 8;
-        CAN0.sendMessage( & canMsgSnd);
       } else if (id == 0xB6 && len == 8) {
-        engineRPM = ((canMsgRcv.data[0] << 8) | canMsgRcv.data[1]) / 100;
+        engineRPM = ((canMsgRcv.data[0] << 8) | canMsgRcv.data[1]) * 0.125;
         if (engineRPM > 0) {
           EngineRunning = true;
         } else {
           EngineRunning = false;
         }
-        vehicleSpeed = ((canMsgRcv.data[2] << 8) | canMsgRcv.data[3]) / 100;
+        vehicleSpeed = ((canMsgRcv.data[2] << 8) | canMsgRcv.data[3]) * 0.01;
         CAN1.sendMessage( & canMsgRcv);
       } else if (id == 0x336 && len == 3 && emulateVIN) { // ASCII coded first 3 letters of VIN
         canMsgSnd.data[0] = vinNumber[0]; //V
@@ -1117,7 +1105,19 @@ void loop() {
         canMsgSnd.data[6] = personalizationSettings[5];
         canMsgSnd.data[7] = personalizationSettings[6];
         canMsgSnd.can_id = 0x15B; // Personalization frame status
-        canMsgSnd.can_dlc = 7;
+        canMsgSnd.can_dlc = 8;
+        CAN0.sendMessage( & canMsgSnd);
+
+        canMsgSnd.data[0] = 0x08;
+        canMsgSnd.data[1] = 0x10;
+        canMsgSnd.data[2] = 0xFF;
+        canMsgSnd.data[3] = 0xFF;
+        canMsgSnd.data[4] = 0x7F;
+        canMsgSnd.data[5] = 0xFF;
+        canMsgSnd.data[6] = 0x00;
+        canMsgSnd.data[7] = 0x00;
+        canMsgSnd.can_id = 0x167; // Fake EMF status frame
+        canMsgSnd.can_dlc = 8;
         CAN0.sendMessage( & canMsgSnd);
 
         // Economy mode simulation
@@ -1291,7 +1291,7 @@ void loop() {
         canMsgSnd.data[6] = 0x00;
         canMsgSnd.data[7] = 0x00;
         canMsgSnd.can_id = 0x167; // Fake EMF Status frame
-        canMsgSnd.can_dlc = 5;
+        canMsgSnd.can_dlc = 8;
         CAN0.sendMessage( & canMsgSnd);
       } else if (id == 0x31C && len == 5) { // MATT status
         canMsgSnd.data[0] = canMsgRcv.data[0];
