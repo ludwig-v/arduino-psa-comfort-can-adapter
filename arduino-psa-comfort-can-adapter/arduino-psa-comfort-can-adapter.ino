@@ -483,7 +483,7 @@ void loop() {
         canMsgSnd.can_id = 0x3B6;
         canMsgSnd.can_dlc = 6;
         CAN1.sendMessage( & canMsgSnd);
-      } else if (id == 0x2B6 && len == 8 && emulateVIN) { //ASCII coded 10-17 letters (last 8) of VIN
+      } else if (id == 0x2B6 && len == 8 && emulateVIN) { // ASCII coded 10-17 letters (last 8) of VIN
         canMsgSnd.data[0] = vinNumber[9]; //X
         canMsgSnd.data[1] = vinNumber[10]; //X
         canMsgSnd.data[2] = vinNumber[11]; //X
@@ -493,6 +493,18 @@ void loop() {
         canMsgSnd.data[6] = vinNumber[15]; //X
         canMsgSnd.data[7] = vinNumber[16]; //X
         canMsgSnd.can_id = 0x2B6;
+        canMsgSnd.can_dlc = 8;
+        CAN1.sendMessage( & canMsgSnd);
+      } else if (id == 0xE6 && len < 8) { // ABS status frame, increase length
+        canMsgSnd.data[0] = canMsgRcv.data[0]; // Status lights / Alerts
+        canMsgSnd.data[1] = canMsgRcv.data[1]; // Rear left rotations
+        canMsgSnd.data[2] = canMsgRcv.data[2]; // Rear left rotations
+        canMsgSnd.data[3] = canMsgRcv.data[3]; // Rear right rotations
+        canMsgSnd.data[4] = canMsgRcv.data[4]; // Rear right rotations
+        canMsgSnd.data[5] = canMsgRcv.data[5]; // Battery Voltage measured by ABS
+        canMsgSnd.data[6] = canMsgRcv.data[6]; // STT / Slope / Emergency Braking
+        canMsgSnd.data[7] = 0x00; // Checksum / Counter : WIP
+        canMsgSnd.can_id = 0xE6;
         canMsgSnd.can_dlc = 8;
         CAN1.sendMessage( & canMsgSnd);
       } else if (id == 0x21F && len == 3) { // Steering wheel commands - Generic
