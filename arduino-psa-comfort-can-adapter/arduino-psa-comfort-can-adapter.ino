@@ -116,8 +116,18 @@ int vehicleSpeed = 0;
 int engineRPM = 0;
 bool resetTrip1 = false;
 bool resetTrip2 = false;
+bool pushAAS = false;
+bool pushSAM = false;
+bool pushDSG = false;
+bool pushSTT = false;
+bool pushCHECK = false;
+bool stopCHECK = false;
+bool pushBLACK = false;
+bool pushASR = false;
 byte personalizationSettings[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+byte statusCMB[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 bool TelematicPresent = false;
+bool ClusterPresent = false;
 
 // Language & Unit CAN2010 value
 byte languageAndUnitNum = (languageID * 4) + 128;
@@ -619,6 +629,17 @@ void loop() {
         if (Send_CAN2010_ForgedMessages) {
           CAN0.sendMessage( & canMsgSnd);
         }
+      } else if (id == 0x217 && len == 8) { // Cache cluster status (CMB)
+        statusCMB[0] = canMsgRcv.data[0];
+        statusCMB[1] = canMsgRcv.data[1];
+        statusCMB[2] = canMsgRcv.data[2];
+        statusCMB[3] = canMsgRcv.data[3];
+        statusCMB[4] = canMsgRcv.data[4];
+        statusCMB[5] = canMsgRcv.data[5];
+        statusCMB[6] = canMsgRcv.data[6];
+        statusCMB[6] = canMsgRcv.data[7];
+
+        CAN1.sendMessage( & canMsgRcv);
       } else if (id == 0xA2 && noFMUX && (steeringWheelCommands_Type == 2 || steeringWheelCommands_Type == 3)) { // Steering wheel commands - C4 I / C5 X7
         tmpVal = canMsgRcv.data[1];
 
@@ -1299,23 +1320,23 @@ void loop() {
 
           Serial.println();
         }
-      } else if (id == 0x1A9 && len == 8) {
+      } else if (id == 0x1A9 && len == 8) { // Telematic commands
         TelematicPresent = true;
 
-        // bitRead(canMsgRcv.data[1], 7); // Stop Check
-        // bitRead(canMsgRcv.data[0], 7); // Black panel
         resetTrip1 = bitRead(canMsgRcv.data[0], 1); // Reset Trip 1
         resetTrip2 = bitRead(canMsgRcv.data[0], 0); // Reset Trip 2
-        // bitRead(canMsgRcv.data[3], 5); // SAM
-        // bitRead(canMsgRcv.data[3], 2); // AAS
-        // bitRead(canMsgRcv.data[5], 0); // Indirect DSG reset
-        // bitRead(canMsgRcv.data[5], 0); // Check
-        // bitRead(canMsgRcv.data[6], 7); // Start&Stop
+        pushAAS = bitRead(canMsgRcv.data[3], 2); // AAS
+        pushSAM = bitRead(canMsgRcv.data[3], 2); // SAM
+        pushDSG = bitRead(canMsgRcv.data[5], 0); // Indirect DSG reset
+        pushSTT = bitRead(canMsgRcv.data[6], 7); // Start&Stop
+        pushCHECK = bitRead(canMsgRcv.data[6], 0); // Check
+        stopCHECK = bitRead(canMsgRcv.data[1], 7); // Stop Check
+        pushBLACK = bitRead(canMsgRcv.data[5], 0); // Black Panel
 
         if (Ignition) {
           canMsgSnd.data[0] = 0x00;
-          bitWrite(canMsgSnd.data[0], 7, bitRead(canMsgRcv.data[0], 1)); // Reset Trip 1
-          bitWrite(canMsgSnd.data[0], 6, bitRead(canMsgRcv.data[0], 0)); // Reset Trip 2
+          bitWrite(canMsgSnd.data[0], 7, resetTrip1); // Reset Trip 1
+          bitWrite(canMsgSnd.data[0], 6, resetTrip2); // Reset Trip 2
           canMsgSnd.data[1] = 0x10;
           canMsgSnd.data[2] = 0xFF;
           canMsgSnd.data[3] = 0xFF;
@@ -1327,6 +1348,30 @@ void loop() {
           canMsgSnd.can_dlc = 8;
           CAN0.sendMessage( & canMsgSnd);
         }
+
+        if (!ClusterPresent && Ignition && (resetTrip1 || resetTrip2 || pushAAS || pushSAM || pushDSG || pushSTT || pushCHECK)) {
+          canMsgSnd.data[0] = statusCMB[0];
+          canMsgSnd.data[1] = statusCMB[1];
+          bitWrite(canMsgSnd.data[1], 4, pushCHECK);
+          bitWrite(canMsgSnd.data[1], 2, resetTrip1);
+          canMsgSnd.data[2] = statusCMB[2];
+          bitWrite(canMsgSnd.data[2], 7, pushAAS);
+          bitWrite(canMsgSnd.data[2], 6, pushASR);
+          canMsgSnd.data[3] = statusCMB[3];
+          bitWrite(canMsgSnd.data[3], 3, pushSAM);
+          bitWrite(canMsgSnd.data[3], 0, resetTrip2);
+          canMsgSnd.data[4] = statusCMB[4];
+          bitWrite(canMsgSnd.data[4], 7, pushDSG);
+          canMsgSnd.data[5] = statusCMB[5];
+          canMsgSnd.data[6] = statusCMB[6];
+          bitWrite(canMsgSnd.data[6], 7, pushSTT);
+          canMsgSnd.data[7] = statusCMB[7];
+          canMsgSnd.can_id = 0x217;
+          canMsgSnd.can_dlc = 8;
+          CAN0.sendMessage( & canMsgSnd);
+        }
+      } else if (id == 0x329 && len == 8) {
+        pushASR = bitRead(canMsgRcv.data[3], 0); // ESP
       } else if (id == 0x31C && len == 5) { // MATT status
         canMsgSnd.data[0] = canMsgRcv.data[0];
         // Rewrite if necessary to make BTEL commands working
@@ -1342,6 +1387,28 @@ void loop() {
         canMsgSnd.data[4] = canMsgRcv.data[4];
         canMsgSnd.can_id = 0x31C;
         canMsgSnd.can_dlc = 5;
+        CAN0.sendMessage( & canMsgSnd);
+      } else if (id == 0x217 && len == 8) { // Rewrite Cluster status (CIROCCO for example) for tactile touch buttons (telematic) because it is not listened by BSI
+        ClusterPresent = true;
+
+        canMsgSnd.data[0] = canMsgRcv.data[0];
+        canMsgSnd.data[1] = canMsgRcv.data[1];
+        bitWrite(canMsgSnd.data[1], 4, pushCHECK);
+        bitWrite(canMsgSnd.data[1], 2, resetTrip1);
+        canMsgSnd.data[2] = canMsgRcv.data[2];
+        bitWrite(canMsgSnd.data[2], 7, pushAAS);
+        bitWrite(canMsgSnd.data[2], 6, pushASR);
+        canMsgSnd.data[3] = canMsgRcv.data[3];
+        bitWrite(canMsgSnd.data[3], 3, pushSAM);
+        bitWrite(canMsgSnd.data[3], 0, resetTrip2);
+        canMsgSnd.data[4] = canMsgRcv.data[4];
+        bitWrite(canMsgSnd.data[4], 7, pushDSG);
+        canMsgSnd.data[5] = canMsgRcv.data[5];
+        canMsgSnd.data[6] = canMsgRcv.data[6];
+        bitWrite(canMsgSnd.data[6], 7, pushSTT);
+        canMsgSnd.data[7] = canMsgRcv.data[7];
+        canMsgSnd.can_id = 0x217;
+        canMsgSnd.can_dlc = 8;
         CAN0.sendMessage( & canMsgSnd);
       } else if (id == 0x15B && len == 8) {
         if (bitRead(canMsgRcv.data[1], 2)) { // Parameters validity
