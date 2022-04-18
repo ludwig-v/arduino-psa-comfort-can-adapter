@@ -71,6 +71,7 @@ byte Time_hour = 0; // Default hour if the RTC module is not configured
 byte Time_minute = 0; // Default minute if the RTC module is not configured
 bool resetEEPROM = false; // Switch to true to reset all EEPROM values
 bool CVM_Emul = true; // Send suggested speed from Telematic to fake CVM (Multifunction camera inside the windshield) frame
+bool changeBSImessagesDest = true; // Redirect messages from CMB to NAC / EMF - useful for C5 (X7)
 
 bool emulateVIN = false; // Replace network VIN by another (donor car for example)
 char vinNumber[18] = "VF3XXXXXXXXXXXXXX";
@@ -505,6 +506,20 @@ void loop() {
         canMsgSnd.data[6] = canMsgRcv.data[6]; // STT / Slope / Emergency Braking
         canMsgSnd.data[7] = 0x00; // Checksum / Counter : WIP
         canMsgSnd.can_id = 0xE6;
+        canMsgSnd.can_dlc = 8;
+        CAN1.sendMessage( & canMsgSnd);
+      } else if (id == 0x1A1 && changeBSImessagesDest && bitRead(canMsgRcv.data[2], 6)) { // BSI Messages (Low fuel, door alerts & so on)
+        canMsgSnd.data[0] = canMsgRcv.data[0];
+        canMsgSnd.data[1] = canMsgRcv.data[1];
+        canMsgSnd.data[2] = canMsgRcv.data[2];
+        bitWrite(canMsgSnd.data[2], 7, 1); // NAC / EMF
+        bitWrite(canMsgSnd.data[2], 6, 0); // CMB
+        canMsgSnd.data[3] = canMsgRcv.data[3];
+        canMsgSnd.data[4] = canMsgRcv.data[4];
+        canMsgSnd.data[5] = canMsgRcv.data[5];
+        canMsgSnd.data[6] = canMsgRcv.data[6];
+        canMsgSnd.data[7] = canMsgRcv.data[7];
+        canMsgSnd.can_id = 0x1A1;
         canMsgSnd.can_dlc = 8;
         CAN1.sendMessage( & canMsgSnd);
       } else if (id == 0x21F && len == 3) { // Steering wheel commands - Generic
