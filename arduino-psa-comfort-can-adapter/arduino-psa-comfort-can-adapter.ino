@@ -1137,7 +1137,7 @@ void loop() {
         CAN0.sendMessage( & canMsgSnd);
 
         if (!TelematicPresent && Ignition) {
-          canMsgSnd.data[0] = 0x08;
+          canMsgSnd.data[0] = 0x00;
           canMsgSnd.data[1] = 0x10;
           canMsgSnd.data[2] = 0xFF;
           canMsgSnd.data[3] = 0xFF;
@@ -1313,7 +1313,7 @@ void loop() {
         // bitRead(canMsgRcv.data[6], 7); // Start&Stop
 
         if (Ignition) {
-          canMsgSnd.data[0] = 0x08;
+          canMsgSnd.data[0] = 0x00;
           bitWrite(canMsgSnd.data[0], 7, bitRead(canMsgRcv.data[0], 1)); // Reset Trip 1
           bitWrite(canMsgSnd.data[0], 6, bitRead(canMsgRcv.data[0], 0)); // Reset Trip 2
           canMsgSnd.data[1] = 0x10;
