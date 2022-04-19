@@ -61,7 +61,7 @@ bool mpgMi = false;
 bool kmL = false; // km/L statistics instead of L/100
 bool fixedBrightness = false; // Force Brightness value in case the calibration does not match your brightness value range
 bool noFMUX = false; // If you don't have any useful button on the main panel, turn the SRC button on steering wheel commands into MENU - only works for CAN2010 SMEG / NAC -
-byte steeringWheelCommands_Type = 0; // noFMUX extra setting : 0 = Generic, 1 = C4 I / C5 X7 NAV+MUSIC+APPS+PHONE mapping, 2 = C4 I / C5 X7 MENU mapping, 3 = C4 I / C5 X7 MENU mapping + SRC on wiper command button
+byte steeringWheelCommands_Type = 0; // noFMUX extra setting : 0 = Generic, 1 = C4 I / C5 X7 NAV+MUSIC+APPS+PHONE mapping, 2 = C4 I / C5 X7 MENU mapping, 3 = C4 I / C5 X7 MENU mapping + SRC on wiper command button, 4 = C4 I / C5 X7 MENU mapping + TRIP on wiper command button
 byte languageID = 0; // Default is FR: 0 - EN: 1 / DE: 2 / ES: 3 / IT: 4 / PT: 5 / NL: 6 / BR: 9 / TR: 12 / RU: 14
 bool listenCAN2004Language = false; // Switch language on CAN2010 devices if changed on supported CAN2004 devices, default: no
 byte Time_day = 1; // Default day if the RTC module is not configured
@@ -124,10 +124,12 @@ bool pushCHECK = false;
 bool stopCHECK = false;
 bool pushBLACK = false;
 bool pushASR = false;
+bool pushTRIP = false;
 byte personalizationSettings[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 byte statusCMB[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 bool TelematicPresent = false;
 bool ClusterPresent = false;
+bool pushA2 = false;
 
 // Language & Unit CAN2010 value
 byte languageAndUnitNum = (languageID * 4) + 128;
@@ -522,8 +524,9 @@ void loop() {
         canMsgSnd.data[0] = canMsgRcv.data[0];
         canMsgSnd.data[1] = canMsgRcv.data[1];
         canMsgSnd.data[2] = canMsgRcv.data[2];
-        bitWrite(canMsgSnd.data[2], 7, 1); // NAC / EMF
-        bitWrite(canMsgSnd.data[2], 6, 0); // CMB
+        bitWrite(canMsgSnd.data[2], 7, 1); // Destination: NAC / EMF
+        bitWrite(canMsgSnd.data[2], 6, 0); // Destination: CMB
+        bitWrite(canMsgSnd.data[2], 5, 1); // Allow display
         canMsgSnd.data[3] = canMsgRcv.data[3];
         canMsgSnd.data[4] = canMsgRcv.data[4];
         canMsgSnd.data[5] = canMsgRcv.data[5];
@@ -536,7 +539,7 @@ void loop() {
         tmpVal = canMsgRcv.data[0];
         scrollValue = canMsgRcv.data[1];
 
-        if (tmpVal == 2 && noFMUX && steeringWheelCommands_Type == 0) { // Replace SRC by MENU (Valid for 208, C-Elysee calibrations for example)
+        if (bitRead(canMsgRcv.data[0], 1) && noFMUX && steeringWheelCommands_Type == 0) { // Replace MODE/SRC by MENU (Valid for 208, C-Elysee calibrations for example)
           canMsgSnd.data[0] = 0x80; // MENU button
           canMsgSnd.data[1] = 0x00;
           canMsgSnd.data[2] = 0x00;
@@ -572,56 +575,117 @@ void loop() {
           }
         }
       } else if (id == 0xA2 && noFMUX && steeringWheelCommands_Type == 1) { // Steering wheel commands - C4 I / C5 X7
-        tmpVal = canMsgRcv.data[1];
+        // Fake FMUX Buttons in the car
+        canMsgSnd.data[0] = 0x00;
+        canMsgSnd.data[1] = 0x00;
+        canMsgSnd.data[2] = 0x00;
+        canMsgSnd.data[3] = 0x00;
+        canMsgSnd.data[4] = 0x00;
+        canMsgSnd.data[5] = 0x02;
+        canMsgSnd.data[6] = 0x00; // Volume potentiometer button
+        canMsgSnd.data[7] = 0x00;
 
-        if (tmpVal == 8) { // MENU button pushed > MUSIC
-          canMsgSnd.data[0] = 0x00;
-          canMsgSnd.data[1] = 0x20;
-          canMsgSnd.data[2] = 0x00;
-          canMsgSnd.data[3] = 0x00;
-          canMsgSnd.data[4] = 0x00;
-          canMsgSnd.data[5] = 0x02;
-          canMsgSnd.data[6] = 0x00; // Volume potentiometer button
-          canMsgSnd.data[7] = 0x00;
-        } else if (tmpVal == 4) { // MODE button pushed > NAV
-          canMsgSnd.data[0] = 0x00;
-          canMsgSnd.data[1] = 0x08;
-          canMsgSnd.data[2] = 0x00;
-          canMsgSnd.data[3] = 0x00;
-          canMsgSnd.data[4] = 0x00;
-          canMsgSnd.data[5] = 0x02;
-          canMsgSnd.data[6] = 0x00; // Volume potentiometer button
-          canMsgSnd.data[7] = 0x00;
-        } else if (tmpVal == 16) { // ESC button pushed > APPS
-          canMsgSnd.data[0] = 0x00;
-          canMsgSnd.data[1] = 0x40;
-          canMsgSnd.data[2] = 0x00;
-          canMsgSnd.data[3] = 0x00;
-          canMsgSnd.data[4] = 0x00;
-          canMsgSnd.data[5] = 0x02;
-          canMsgSnd.data[6] = 0x00; // Volume potentiometer button
-          canMsgSnd.data[7] = 0x00;
-        } else if (tmpVal == 32) { // OK button pushed > PHONE
-          canMsgSnd.data[0] = 0x00;
-          canMsgSnd.data[1] = 0x04;
-          canMsgSnd.data[2] = 0x08;
-          canMsgSnd.data[3] = 0x00;
-          canMsgSnd.data[4] = 0x00;
-          canMsgSnd.data[5] = 0x02;
-          canMsgSnd.data[6] = 0x00; // Volume potentiometer button
-          canMsgSnd.data[7] = 0x00;
+        if (bitRead(canMsgRcv.data[1], 3)) { // MENU button pushed > MUSIC
+          if (!pushA2) {
+            canMsgSnd.data[0] = 0x00;
+            canMsgSnd.data[1] = 0x20;
+            canMsgSnd.data[2] = 0x00;
+            canMsgSnd.data[3] = 0x00;
+            canMsgSnd.data[4] = 0x00;
+            canMsgSnd.data[5] = 0x02;
+            canMsgSnd.data[6] = 0x00; // Volume potentiometer button
+            canMsgSnd.data[7] = 0x00;
+            pushA2 = true;
+          }
+        } else if (bitRead(canMsgRcv.data[1], 2)) { // MODE button pushed > NAV
+          if (!pushA2) {
+            canMsgSnd.data[0] = 0x00;
+            canMsgSnd.data[1] = 0x08;
+            canMsgSnd.data[2] = 0x00;
+            canMsgSnd.data[3] = 0x00;
+            canMsgSnd.data[4] = 0x00;
+            canMsgSnd.data[5] = 0x02;
+            canMsgSnd.data[6] = 0x00; // Volume potentiometer button
+            canMsgSnd.data[7] = 0x00;
+            pushA2 = true;
+          }
+        } else if (bitRead(canMsgRcv.data[1], 4)) { // ESC button pushed > APPS
+          if (!pushA2) {
+            canMsgSnd.data[0] = 0x00;
+            canMsgSnd.data[1] = 0x40;
+            canMsgSnd.data[2] = 0x00;
+            canMsgSnd.data[3] = 0x00;
+            canMsgSnd.data[4] = 0x00;
+            canMsgSnd.data[5] = 0x02;
+            canMsgSnd.data[6] = 0x00; // Volume potentiometer button
+            canMsgSnd.data[7] = 0x00;
+            pushA2 = true;
+          }
+        } else if (bitRead(canMsgRcv.data[1], 5)) { // OK button pushed > PHONE
+          if (!pushA2) {
+            canMsgSnd.data[0] = 0x00;
+            canMsgSnd.data[1] = 0x04;
+            canMsgSnd.data[2] = 0x08;
+            canMsgSnd.data[3] = 0x00;
+            canMsgSnd.data[4] = 0x00;
+            canMsgSnd.data[5] = 0x02;
+            canMsgSnd.data[6] = 0x00; // Volume potentiometer button
+            canMsgSnd.data[7] = 0x00;
+            pushA2 = true;
+          }
         } else {
+          pushA2 = false;
           CAN1.sendMessage( & canMsgRcv);
+        }
+        canMsgSnd.can_id = 0x122;
+        canMsgSnd.can_dlc = 8;
+        CAN1.sendMessage( & canMsgSnd);
+        if (Send_CAN2010_ForgedMessages) {
+          CAN0.sendMessage( & canMsgSnd);
+        }
+      } else if (id == 0xA2 && noFMUX && (steeringWheelCommands_Type == 2 || steeringWheelCommands_Type == 3 || steeringWheelCommands_Type == 4)) { // Steering wheel commands - C4 I / C5 X7
+        // Fake FMUX Buttons in the car
+        canMsgSnd.data[0] = 0x00;
+        canMsgSnd.data[1] = 0x00;
+        canMsgSnd.data[2] = 0x00;
+        canMsgSnd.data[3] = 0x00;
+        canMsgSnd.data[4] = 0x00;
+        canMsgSnd.data[5] = 0x02;
+        canMsgSnd.data[6] = 0x00; // Volume potentiometer button
+        canMsgSnd.data[7] = 0x00;
 
-          // Fake FMUX Buttons in the car
-          canMsgSnd.data[0] = 0x00;
-          canMsgSnd.data[1] = 0x00;
-          canMsgSnd.data[2] = 0x00;
-          canMsgSnd.data[3] = 0x00;
-          canMsgSnd.data[4] = 0x00;
-          canMsgSnd.data[5] = 0x02;
-          canMsgSnd.data[6] = 0x00; // Volume potentiometer button
-          canMsgSnd.data[7] = 0x00;
+        if (bitRead(canMsgRcv.data[1], 3)) { // MENU button pushed > MENU
+          if (!pushA2) {
+            canMsgSnd.data[0] = 0x80;
+            canMsgSnd.data[1] = 0x00;
+            canMsgSnd.data[2] = 0x00;
+            canMsgSnd.data[3] = 0x00;
+            canMsgSnd.data[4] = 0x00;
+            canMsgSnd.data[5] = 0x02;
+            canMsgSnd.data[6] = 0x00; // Volume potentiometer button
+            canMsgSnd.data[7] = 0x00;
+            pushA2 = true;
+          }
+        } else if (bitRead(canMsgRcv.data[1], 2) && steeringWheelCommands_Type == 3) { // Right push button / MODE/SRC > SRC
+          if (!pushA2) {
+            canMsgSnd.data[0] = 0x40;
+            canMsgSnd.data[1] = 0x00;
+            canMsgSnd.data[2] = 0x00;
+            canMsgSnd.data[3] = 0x00;
+            canMsgSnd.data[4] = 0x00;
+            canMsgSnd.data[5] = 0x02;
+            canMsgSnd.data[6] = 0x00; // Volume potentiometer button
+            canMsgSnd.data[7] = 0x00;
+            pushA2 = true;
+          }
+        } else if (bitRead(canMsgRcv.data[1], 2) && steeringWheelCommands_Type == 4) { // Right push button / MODE/SRC > TRIP
+          if (!pushA2) {
+            pushTRIP = true;
+            pushA2 = true;
+          }
+        } else {
+          pushA2 = false;
+          CAN1.sendMessage( & canMsgRcv);
         }
         canMsgSnd.can_id = 0x122;
         canMsgSnd.can_dlc = 8;
@@ -640,46 +704,6 @@ void loop() {
         statusCMB[6] = canMsgRcv.data[7];
 
         CAN1.sendMessage( & canMsgRcv);
-      } else if (id == 0xA2 && noFMUX && (steeringWheelCommands_Type == 2 || steeringWheelCommands_Type == 3)) { // Steering wheel commands - C4 I / C5 X7
-        tmpVal = canMsgRcv.data[1];
-
-        if (tmpVal == 0x08) { // MENU button pushed > MENU
-          canMsgSnd.data[0] = 0x80;
-          canMsgSnd.data[1] = 0x00;
-          canMsgSnd.data[2] = 0x00;
-          canMsgSnd.data[3] = 0x00;
-          canMsgSnd.data[4] = 0x00;
-          canMsgSnd.data[5] = 0x02;
-          canMsgSnd.data[6] = 0x00; // Volume potentiometer button
-          canMsgSnd.data[7] = 0x00;
-        } else if (tmpVal == 0x04 && steeringWheelCommands_Type == 3) { // SRC button pushed > SRC
-          canMsgSnd.data[0] = 0x40;
-          canMsgSnd.data[1] = 0x00;
-          canMsgSnd.data[2] = 0x00;
-          canMsgSnd.data[3] = 0x00;
-          canMsgSnd.data[4] = 0x00;
-          canMsgSnd.data[5] = 0x02;
-          canMsgSnd.data[6] = 0x00; // Volume potentiometer button
-          canMsgSnd.data[7] = 0x00;
-        } else if (tmpVal != 0x10 && tmpVal != 0x20) {
-          CAN1.sendMessage( & canMsgRcv);
-
-          // Fake FMUX Buttons in the car
-          canMsgSnd.data[0] = 0x00;
-          canMsgSnd.data[1] = 0x00;
-          canMsgSnd.data[2] = 0x00;
-          canMsgSnd.data[3] = 0x00;
-          canMsgSnd.data[4] = 0x00;
-          canMsgSnd.data[5] = 0x02;
-          canMsgSnd.data[6] = 0x00; // Volume potentiometer button
-          canMsgSnd.data[7] = 0x00;
-        }
-        canMsgSnd.can_id = 0x122;
-        canMsgSnd.can_dlc = 8;
-        CAN1.sendMessage( & canMsgSnd);
-        if (Send_CAN2010_ForgedMessages) {
-          CAN0.sendMessage( & canMsgSnd);
-        }
       } else if (id == 0x1D0 && len == 7 && EngineRunning) { // No fan activated if the engine is not ON on old models
         LeftTemp = canMsgRcv.data[5];
         RightTemp = canMsgRcv.data[6];
@@ -886,6 +910,9 @@ void loop() {
           CAN0.sendMessage( & canMsgSnd);
         }
       } else if (id == 0x221) { // Trip info
+        if (pushTRIP) {
+          bitWrite(canMsgRcv.data[0], 3, 1);
+        }
         CAN1.sendMessage( & canMsgRcv); // Forward original frame
 
         customTimeStamp = (long) hour() * (long) 3600 + minute() * 60 + second();
