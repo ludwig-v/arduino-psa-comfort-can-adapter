@@ -924,6 +924,7 @@ void loop() {
       } else if (id == 0x221) { // Trip info
         if (pushTRIP) {
           bitWrite(canMsgRcv.data[0], 3, 1);
+          pushTRIP = false;
         }
         CAN1.sendMessage( & canMsgRcv); // Forward original frame
 
