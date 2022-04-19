@@ -678,6 +678,18 @@ void loop() {
             canMsgSnd.data[7] = 0x00;
             pushA2 = true;
           }
+        } else if (bitRead(canMsgRcv.data[1], 4) && steeringWheelCommands_Type == 4) { // ESC button pushed > SRC
+          if (!pushA2) {
+            canMsgSnd.data[0] = 0x40;
+            canMsgSnd.data[1] = 0x00;
+            canMsgSnd.data[2] = 0x00;
+            canMsgSnd.data[3] = 0x00;
+            canMsgSnd.data[4] = 0x00;
+            canMsgSnd.data[5] = 0x02;
+            canMsgSnd.data[6] = 0x00; // Volume potentiometer button
+            canMsgSnd.data[7] = 0x00;
+            pushA2 = true;
+          }
         } else if (bitRead(canMsgRcv.data[1], 2) && steeringWheelCommands_Type == 4) { // Right push button / MODE/SRC > TRIP
           if (!pushA2) {
             pushTRIP = true;
