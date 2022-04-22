@@ -71,7 +71,8 @@ byte Time_hour = 0; // Default hour if the RTC module is not configured
 byte Time_minute = 0; // Default minute if the RTC module is not configured
 bool resetEEPROM = false; // Switch to true to reset all EEPROM values
 bool CVM_Emul = true; // Send suggested speed from Telematic to fake CVM (Multifunction camera inside the windshield) frame
-bool changeBSImessagesDest = true; // Redirect messages from CMB to NAC / EMF - useful for C5 (X7)
+bool changeBSImessagesDest = true; // Redirect messages from CMB to NAC / EMF
+bool generatePOPups = false; // Generate notifications from alerts journal - useful for C5 (X7)
 
 bool emulateVIN = false; // Replace network VIN by another (donor car for example)
 char vinNumber[18] = "VF3XXXXXXXXXXXXXX";
@@ -127,9 +128,11 @@ bool pushASR = false;
 bool pushTRIP = false;
 byte personalizationSettings[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 byte statusCMB[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+byte statusTRIP[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 bool TelematicPresent = false;
 bool ClusterPresent = false;
 bool pushA2 = false;
+int alertsCache[] = {0, 0, 0, 0, 0, 0, 0, 0}; // Max 8
 
 // Language & Unit CAN2010 value
 byte languageAndUnitNum = (languageID * 4) + 128;
@@ -526,7 +529,6 @@ void loop() {
         canMsgSnd.data[2] = canMsgRcv.data[2];
         bitWrite(canMsgSnd.data[2], 7, 1); // Destination: NAC / EMF
         bitWrite(canMsgSnd.data[2], 6, 0); // Destination: CMB
-        bitWrite(canMsgSnd.data[2], 5, 1); // Allow display
         canMsgSnd.data[3] = canMsgRcv.data[3];
         canMsgSnd.data[4] = canMsgRcv.data[4];
         canMsgSnd.data[5] = canMsgRcv.data[5];
@@ -705,6 +707,26 @@ void loop() {
         if (Send_CAN2010_ForgedMessages) {
           CAN0.sendMessage( & canMsgSnd);
         }
+
+        if (pushTRIP) {
+          pushTRIP = false;
+
+          canMsgSnd.data[0] = statusTRIP[0];
+          bitWrite(canMsgSnd.data[0], 3, 1);
+          canMsgSnd.data[1] = statusTRIP[1];
+          canMsgSnd.data[2] = statusTRIP[2];
+          canMsgSnd.data[3] = statusTRIP[3];
+          canMsgSnd.data[4] = statusTRIP[4];
+          canMsgSnd.data[5] = statusTRIP[5];
+          canMsgSnd.data[6] = statusTRIP[6];
+          canMsgSnd.data[7] = statusTRIP[7];
+          canMsgSnd.can_id = 0x221;
+          canMsgSnd.can_dlc = 8;
+          CAN1.sendMessage( & canMsgSnd);
+          if (Send_CAN2010_ForgedMessages) {
+            CAN0.sendMessage( & canMsgSnd);
+          }
+        }
       } else if (id == 0x217 && len == 8) { // Cache cluster status (CMB)
         statusCMB[0] = canMsgRcv.data[0];
         statusCMB[1] = canMsgRcv.data[1];
@@ -713,7 +735,7 @@ void loop() {
         statusCMB[4] = canMsgRcv.data[4];
         statusCMB[5] = canMsgRcv.data[5];
         statusCMB[6] = canMsgRcv.data[6];
-        statusCMB[6] = canMsgRcv.data[7];
+        statusCMB[7] = canMsgRcv.data[7];
 
         CAN1.sendMessage( & canMsgRcv);
       } else if (id == 0x1D0 && len == 7 && EngineRunning) { // No fan activated if the engine is not ON on old models
@@ -921,11 +943,179 @@ void loop() {
         if (Send_CAN2010_ForgedMessages) { // Will generate some light issues on the instrument panel
           CAN0.sendMessage( & canMsgSnd);
         }
-      } else if (id == 0x221) { // Trip info
-        if (pushTRIP) {
-          bitWrite(canMsgRcv.data[0], 3, 1);
-          pushTRIP = false;
+      } else if (id == 0x120 && generatePOPups) { // Alerts journal / Diagnostic > Popup notifications - Work in progress
+        // Bloc 1
+        if (bitRead(canMsgRcv.data[0], 7) == 0 && bitRead(canMsgRcv.data[0], 6) == 1) {
+          sendPOPup(bitRead(canMsgRcv.data[1], 7), 5); // Engine oil pressure fault: stop the vehicle (STOP)
+          sendPOPup(bitRead(canMsgRcv.data[1], 6), 1); // Engine temperature fault: stop the vehicle (STOP)
+          sendPOPup(bitRead(canMsgRcv.data[1], 5), 138); // Charging system fault: repair needed (WARNING)
+          sendPOPup(bitRead(canMsgRcv.data[1], 4), 106); // Braking system fault: stop the vehicle (STOP)
+          // bitRead(canMsgRcv.data[1], 3); // N/A
+          sendPOPup(bitRead(canMsgRcv.data[1], 2), 109); // Power steering fault: stop the vehicle (STOP) > 109
+          sendPOPup(bitRead(canMsgRcv.data[1], 1), 3); // Top up coolant level (WARNING) > 3
+          // bitRead(canMsgRcv.data[1], 0); // Fault with LKA (WARNING)
+          sendPOPup(bitRead(canMsgRcv.data[2], 7), 4); // Top up engine oil level (WARNING) > 4
+          // bitRead(canMsgRcv.data[2], 6); // N/A
+          sendPOPup((bitRead(canMsgRcv.data[2], 5) || bitRead(canMsgRcv.data[2], 4) || bitRead(canMsgRcv.data[2], 3) || bitRead(canMsgRcv.data[2], 2) || bitRead(canMsgRcv.data[2], 0) || bitRead(canMsgRcv.data[3], 7)), 222); // Left hand front door opened (INFO) || Right hand front door opened (INFO) || Left hand rear door opened (INFO)|| Right hand rear door opened (INFO) || Boot open (INFO) || Rear screen open (INFO)
+          // bitRead(canMsgRcv.data[2], 1); // N/A
+          sendPOPup(bitRead(canMsgRcv.data[3], 6), 107); // ESP/ASR system fault, repair the vehicle (WARNING)
+          // bitRead(canMsgRcv.data[3], 5); // Battery charge fault, stop the vehicle (WARNING)
+          // bitRead(canMsgRcv.data[3], 4); // N/A
+          sendPOPup(bitRead(canMsgRcv.data[3], 3), 125); // Water in diesel fuel filter (WARNING)
+          sendPOPup(bitRead(canMsgRcv.data[3], 2), 103); // Have brake pads replaced (WARNING)
+          sendPOPup(bitRead(canMsgRcv.data[3], 1), 224); // Fuel level low (INFO)
+          sendPOPup(bitRead(canMsgRcv.data[3], 0), 120); // Airbag(s) or seatbelt(s) pretensioner fault(s) (WARNING)
+          // bitRead(canMsgRcv.data[4], 7); // N/A
+          // bitRead(canMsgRcv.data[4], 6); // Engine fault, repair the vehicle (WARNING)
+          sendPOPup(bitRead(canMsgRcv.data[4], 5), 106); // ABS braking system fault, repair the vehicle (WARNING)
+          sendPOPup(bitRead(canMsgRcv.data[4], 4), 15); // Particle filter is full, please drive 20min to clean it (WARNING)
+          // bitRead(canMsgRcv.data[4], 3); // N/A
+          sendPOPup(bitRead(canMsgRcv.data[4], 2), 129); // Particle filter additive level low (WARNING)
+          // bitRead(canMsgRcv.data[4], 1); // N/A
+          sendPOPup(bitRead(canMsgRcv.data[4], 0), 17); // Suspension fault, repair the vehicle (WARNING)
+          // bitRead(canMsgRcv.data[5], 7); // Preheating deactivated, battery charge too low (INFO)
+          // bitRead(canMsgRcv.data[5], 6); // Preheating deactivated, fuel level too low (INFO)
+          // bitRead(canMsgRcv.data[5], 5); // Check the centre brake lamp (WARNING)
+          // bitRead(canMsgRcv.data[5], 4); // Retractable roof mechanism fault (WARNING)
+          sendPOPup(bitRead(canMsgRcv.data[5], 3), 131); // Steering lock fault, repair the vehicle (WARNING)
+          // bitRead(canMsgRcv.data[5], 2); // Electronic immobiliser fault (WARNING)
+          // bitRead(canMsgRcv.data[5], 1); // N/A
+          // bitRead(canMsgRcv.data[5], 0); // Roof operation not possible, system temperature too high (WARNING)
+          // bitRead(canMsgRcv.data[6], 7); // Roof operation not possible, start the engine (WARNING)
+          // bitRead(canMsgRcv.data[6], 6); // Roof operation not possible, apply parking brake (WARNING)
+          // bitRead(canMsgRcv.data[6], 5); // Hybrid system fault (STOP)
+          // bitRead(canMsgRcv.data[6], 4); // Automatic headlamp adjustment fault (WARNING)
+          // bitRead(canMsgRcv.data[6], 3); // Hybrid system fault (WARNING)
+          // bitRead(canMsgRcv.data[6], 2); // Hybrid system fault: speed restricted (WARNING)
+          sendPOPup(bitRead(canMsgRcv.data[6], 1), 223); // Top Up screenwash fluid level (INFO)
+          sendPOPup(bitRead(canMsgRcv.data[6], 0), 227); // Replace remote control battery (INFO)
+          // bitRead(canMsgRcv.data[7], 7); // N/A
+          // bitRead(canMsgRcv.data[7], 6); // Preheating deactivated, set the clock (INFO)
+          // bitRead(canMsgRcv.data[7], 5); // Trailer connection fault (WARNING)
+          // bitRead(canMsgRcv.data[7], 4); // N/A
+          // bitRead(canMsgRcv.data[7], 3); // Tyre under-inflation (WARNING)
+          // bitRead(canMsgRcv.data[7], 2); // Driving aid camera limited visibility (INFO)
+          // bitRead(canMsgRcv.data[7], 1); // N/A
+          // bitRead(canMsgRcv.data[7], 0); // N/A
         }
+
+        // Bloc 2
+        if (bitRead(canMsgRcv.data[0], 7) == 1 && bitRead(canMsgRcv.data[0], 6) == 0) {
+          // bitRead(canMsgRcv.data[1], 7); // N/A
+          // bitRead(canMsgRcv.data[1], 6); // Electric mode not available : Particle filter regenerating (INFO)
+          // bitRead(canMsgRcv.data[1], 5); // N/A
+          // bitRead(canMsgRcv.data[1], 4); // Puncture: Replace or repair the wheel (STOP)
+          // bitRead(canMsgRcv.data[1], 3); // Puncture: Replace or repair the wheel (STOP)
+          // bitRead(canMsgRcv.data[1], 2); // Puncture: Replace or repair the wheel (STOP)
+          // bitRead(canMsgRcv.data[1], 1); // Puncture: Replace or repair the wheel (STOP)
+          // bitRead(canMsgRcv.data[1], 0); // Check sidelamps (WARNING)
+          // bitRead(canMsgRcv.data[2], 7); // Check sidelamps (WARNING)
+          // bitRead(canMsgRcv.data[2], 6); // Check sidelamps (WARNING)
+          // bitRead(canMsgRcv.data[2], 5); // Check sidelamps (WARNING)
+          // bitRead(canMsgRcv.data[2], 4); // Check the dipped beam headlamps (WARNING)
+          // bitRead(canMsgRcv.data[2], 3); // Check the dipped beam headlamps (WARNING)
+          // bitRead(canMsgRcv.data[2], 2); // Check the main beam headlamps (WARNING)
+          // bitRead(canMsgRcv.data[2], 1); // Check the main beam headlamps (WARNING)
+          // bitRead(canMsgRcv.data[2], 0); // Check the RH brake lamp (WARNING)
+          // bitRead(canMsgRcv.data[3], 7); // Check the LH brake lamp (WARNING)
+          // bitRead(canMsgRcv.data[3], 6); // Check the front foglamps (WARNING)
+          // bitRead(canMsgRcv.data[3], 5); // Check the front foglamps (WARNING)
+          // bitRead(canMsgRcv.data[3], 4); // Check the rear foglamps (WARNING)
+          // bitRead(canMsgRcv.data[3], 3); // Check the rear foglamps (WARNING)
+          // bitRead(canMsgRcv.data[3], 2); // Check the direction indicators (WARNING)
+          // bitRead(canMsgRcv.data[3], 1); // Check the direction indicators (WARNING)
+          // bitRead(canMsgRcv.data[3], 0); // Check the direction indicators (WARNING)
+          // bitRead(canMsgRcv.data[4], 7); // Check the direction indicators (WARNING)
+          // bitRead(canMsgRcv.data[4], 6); // Check the reversing lamp(s) (WARNING)
+          // bitRead(canMsgRcv.data[4], 5); // Check the reversing lamp(s) (WARNING)
+          // bitRead(canMsgRcv.data[4], 4); // N/A
+          // bitRead(canMsgRcv.data[4], 3); // N/A
+          // bitRead(canMsgRcv.data[4], 2); // N/A
+          // bitRead(canMsgRcv.data[4], 1); // N/A
+          // bitRead(canMsgRcv.data[4], 0); // N/A
+          // bitRead(canMsgRcv.data[5], 7); // N/A
+          // bitRead(canMsgRcv.data[5], 6); // N/A
+          // bitRead(canMsgRcv.data[5], 5); // N/A
+          sendPOPup(bitRead(canMsgRcv.data[5], 4), 136); // Parking assistance system fault (WARNING)
+          // bitRead(canMsgRcv.data[5], 3); // N/A
+          // bitRead(canMsgRcv.data[5], 2); // N/A
+          sendPOPup((bitRead(canMsgRcv.data[5], 1) || bitRead(canMsgRcv.data[5], 0) || bitRead(canMsgRcv.data[6], 7) || bitRead(canMsgRcv.data[6], 5)), 13); // Adjust tyre pressures (WARNING)
+          // bitRead(canMsgRcv.data[6], 5); // Switch off lighting (INFO)
+          // bitRead(canMsgRcv.data[6], 4); // N/A
+          sendPOPup((bitRead(canMsgRcv.data[6], 3) || bitRead(canMsgRcv.data[6], 1)), 190); // Emissions fault (WARNING)
+          sendPOPup(bitRead(canMsgRcv.data[6], 2), 192); // Emissions fault: Starting Prevented (WARNING) > 192
+          // bitRead(canMsgRcv.data[6], 0); // N/A
+          // bitRead(canMsgRcv.data[7], 7); // N/A
+          // bitRead(canMsgRcv.data[7], 6); // N/A
+          sendPOPup(bitRead(canMsgRcv.data[7], 5), 215); // "P" (INFO)
+          sendPOPup(bitRead(canMsgRcv.data[7], 4), 216); // Ice warning (INFO)
+          sendPOPup((bitRead(canMsgRcv.data[7], 3) || bitRead(canMsgRcv.data[7], 2) || bitRead(canMsgRcv.data[7], 1) || bitRead(canMsgRcv.data[7], 0)), 222); // Front right door opened (INFO) || Front left door opened (INFO) || Rear right door opened (INFO) || Rear left door opened (INFO)
+        }
+        
+        // Bloc 3
+        if (bitRead(canMsgRcv.data[0], 7) == 1 && bitRead(canMsgRcv.data[0], 6) == 1) {
+          sendPOPup((bitRead(canMsgRcv.data[1], 7) || bitRead(canMsgRcv.data[1], 5)), 222); // Boot open (INFO) || Rear Screen open (INFO)
+          // bitRead(canMsgRcv.data[1], 6); // Collision detection risk system fault (INFO)
+          // bitRead(canMsgRcv.data[1], 4); // N/A
+          // bitRead(canMsgRcv.data[1], 3); // N/A
+          // bitRead(canMsgRcv.data[1], 2); // N/A
+          // bitRead(canMsgRcv.data[1], 1); // N/A
+          // bitRead(canMsgRcv.data[1], 0); // N/A
+          // bitRead(canMsgRcv.data[2], 7); // N/A
+          // bitRead(canMsgRcv.data[2], 6); // N/A
+          // bitRead(canMsgRcv.data[2], 5); // N/A
+          sendPOPup(bitRead(canMsgRcv.data[2], 4), 100); // Parking brake fault (WARNING)
+          // bitRead(canMsgRcv.data[2], 3); // Active spoiler fault: speed restricted (WARNING)
+          // bitRead(canMsgRcv.data[2], 2); // Automatic braking system fault (INFO)
+          // bitRead(canMsgRcv.data[2], 1); // Directional headlamps fault (WARNING)
+          // bitRead(canMsgRcv.data[2], 0); // N/A
+          // bitRead(canMsgRcv.data[3], 7); // N/A
+          // bitRead(canMsgRcv.data[3], 6); // N/A
+          // bitRead(canMsgRcv.data[3], 5); // N/A
+          // bitRead(canMsgRcv.data[3], 4); // N/A
+          // bitRead(canMsgRcv.data[3], 3); // N/A
+          // bitRead(canMsgRcv.data[3], 2); // Gearbox fault (WARNING) > 122 (BVMP) / 110 (BVA)
+          // bitRead(canMsgRcv.data[3], 1); // N/A
+          // bitRead(canMsgRcv.data[3], 0); // N/A
+          // bitRead(canMsgRcv.data[4], 7); // N/A
+          // bitRead(canMsgRcv.data[4], 6); // N/A
+          // bitRead(canMsgRcv.data[4], 5); // N/A
+          // bitRead(canMsgRcv.data[4], 4); // N/A
+          // bitRead(canMsgRcv.data[4], 3); // N/A
+          // bitRead(canMsgRcv.data[4], 2); // Engine fault (WARNING)
+          sendPOPup(bitRead(canMsgRcv.data[4], 1), 17); // Suspension fault: limit your speed to 90km/h (WARNING)
+          // bitRead(canMsgRcv.data[4], 0); // N/A
+          // bitRead(canMsgRcv.data[5], 7); // N/A
+          // bitRead(canMsgRcv.data[5], 6); // N/A
+          // bitRead(canMsgRcv.data[5], 5); // N/A
+          // bitRead(canMsgRcv.data[5], 4); // N/A
+          sendPOPup((bitRead(canMsgRcv.data[5], 3) || bitRead(canMsgRcv.data[5], 2) || bitRead(canMsgRcv.data[5], 1) || bitRead(canMsgRcv.data[5], 0)), 229); // Sensor fault: Left hand front tyre pressure not monitored (INFO)
+          sendPOPup(bitRead(canMsgRcv.data[6], 7), 18); // Suspension fault: repair the vehicle (WARNING)
+          sendPOPup(bitRead(canMsgRcv.data[6], 6), 109); // Power steering fault: repair the vehicle (WARNING)
+          // bitRead(canMsgRcv.data[6], 5); // N/A
+          // bitRead(canMsgRcv.data[6], 4); // N/A
+          // bitRead(canMsgRcv.data[6], 3); // Inter-vehicle time measurement fault (WARNING)
+          // bitRead(canMsgRcv.data[6], 2); // Engine fault, stop the vehicle (STOP)
+          // bitRead(canMsgRcv.data[6], 1); // Fault with LKA (INFO)
+          // bitRead(canMsgRcv.data[6], 0); // Tyre under-inflation detection system fault (WARNING)
+          sendPOPup((bitRead(canMsgRcv.data[7], 7) || bitRead(canMsgRcv.data[7], 6) || bitRead(canMsgRcv.data[7], 5)), 183); // Underinflated wheel, ajust pressure and reset (INFO)
+          // bitRead(canMsgRcv.data[7], 4); // Spare wheel fitted: driving aids deactivated (INFO)
+          // bitRead(canMsgRcv.data[7], 3); // Automatic braking disabled (INFO)
+          sendPOPup(bitRead(canMsgRcv.data[7], 2), 188); // Refill AdBlue (WARNING)
+          sendPOPup(bitRead(canMsgRcv.data[7], 1), 187); // Refill AdBlue (INFO)
+          sendPOPup(bitRead(canMsgRcv.data[7], 0), 189); // Impossible engine start, refill AdBlue (WARNING)
+        }
+
+        CAN1.sendMessage( & canMsgRcv); // Forward original frame
+      } else if (id == 0x221) { // Trip info
+        statusTRIP[0] = canMsgRcv.data[0];
+        statusTRIP[1] = canMsgRcv.data[1];
+        statusTRIP[2] = canMsgRcv.data[2];
+        statusTRIP[3] = canMsgRcv.data[3];
+        statusTRIP[4] = canMsgRcv.data[4];
+        statusTRIP[5] = canMsgRcv.data[5];
+        statusTRIP[6] = canMsgRcv.data[6];
+        statusTRIP[7] = canMsgRcv.data[7];
         CAN1.sendMessage( & canMsgRcv); // Forward original frame
 
         customTimeStamp = (long) hour() * (long) 3600 + minute() * 60 + second();
@@ -1670,6 +1860,47 @@ void loop() {
     }
 
   }
+}
+
+void sendPOPup(bool present, int id) {
+  bool clear = false;
+  byte firstEmptyPos = 0;
+  for (int i = 0; i < 8; i++) {
+    if (alertsCache[i] == id) {
+      if (!present) { // Remove from cache and clear popup
+        alertsCache[i] = 0;
+        clear = true;
+        break;
+      } else { // Already sent
+        return;
+      }
+    } else if (alertsCache[i] == 0) {
+      firstEmptyPos = i;
+    }
+  }
+  if (!present && !clear) {
+    return;
+  } else if (!clear) {
+    alertsCache[firstEmptyPos] = id;
+  }
+
+  canMsgSnd.data[0] = highByte(id);
+  canMsgSnd.data[1] = lowByte(id);
+  bitWrite(canMsgSnd.data[0], 7, present); // New message / Clear
+  canMsgSnd.data[2] = 0x06; // Priority (0 > 14)
+  bitWrite(canMsgSnd.data[2], 7, 1); // Destination: NAC / EMF
+  bitWrite(canMsgSnd.data[2], 6, 0); // Destination: CMB
+  bitWrite(canMsgSnd.data[2], 5, 1); // Allow display
+  canMsgSnd.data[3] = 0x08;
+  canMsgSnd.data[4] = 0x00;
+  canMsgSnd.data[5] = 0x00;
+  canMsgSnd.data[6] = 0x00;
+  canMsgSnd.data[7] = 0x00;
+  canMsgSnd.can_id = 0x1A1;
+  canMsgSnd.can_dlc = 8;
+  CAN0.sendMessage( & canMsgSnd);
+
+  return;
 }
 
 int daysSinceYearStartFct() {
