@@ -952,10 +952,10 @@ void loop() {
           sendPOPup(bitRead(canMsgRcv.data[1], 5), 138); // Charging system fault: repair needed (WARNING)
           sendPOPup(bitRead(canMsgRcv.data[1], 4), 106); // Braking system fault: stop the vehicle (STOP)
           // bitRead(canMsgRcv.data[1], 3); // N/A
-          sendPOPup(bitRead(canMsgRcv.data[1], 2), 109); // Power steering fault: stop the vehicle (STOP) > 109
-          sendPOPup(bitRead(canMsgRcv.data[1], 1), 3); // Top up coolant level (WARNING) > 3
+          sendPOPup(bitRead(canMsgRcv.data[1], 2), 109); // Power steering fault: stop the vehicle (STOP)
+          sendPOPup(bitRead(canMsgRcv.data[1], 1), 3); // Top up coolant level (WARNING)
           // bitRead(canMsgRcv.data[1], 0); // Fault with LKA (WARNING)
-          sendPOPup(bitRead(canMsgRcv.data[2], 7), 4); // Top up engine oil level (WARNING) > 4
+          sendPOPup(bitRead(canMsgRcv.data[2], 7), 4); // Top up engine oil level (WARNING)
           // bitRead(canMsgRcv.data[2], 6); // N/A
           sendPOPup((bitRead(canMsgRcv.data[2], 5) || bitRead(canMsgRcv.data[2], 4) || bitRead(canMsgRcv.data[2], 3) || bitRead(canMsgRcv.data[2], 2) || bitRead(canMsgRcv.data[2], 0) || bitRead(canMsgRcv.data[3], 7)), 11); // Left hand front door opened (INFO) || Right hand front door opened (INFO) || Left hand rear door opened (INFO)|| Right hand rear door opened (INFO) || Boot open (INFO) || Rear screen open (INFO)
           // bitRead(canMsgRcv.data[2], 1); // N/A
@@ -1854,7 +1854,13 @@ void loop() {
 
 void sendPOPup(bool present, int id) {
   bool clear = false;
-  byte firstEmptyPos = 0;
+  byte firstEmptyPos = 8;
+
+  if (SerialEnabled && present) {
+    Serial.print("Notification sent with message ID: ");
+    Serial.println(id);
+  }
+
   for (int i = 0; i < 8; i++) {
     if (alertsCache[i] == id) {
       if (!present) { // Remove from cache and clear popup
@@ -1864,9 +1870,12 @@ void sendPOPup(bool present, int id) {
       } else { // Already sent
         return;
       }
-    } else if (alertsCache[i] == 0) {
+    } else if (alertsCache[i] == 0 && firstEmptyPos > 8) {
       firstEmptyPos = i;
     }
+  }
+  if (firstEmptyPos >= 8) {
+    return; // Avoid overflow	  
   }
   if (!present && !clear) {
     return;
