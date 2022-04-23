@@ -133,6 +133,7 @@ bool TelematicPresent = false;
 bool ClusterPresent = false;
 bool pushA2 = false;
 int alertsCache[] = {0, 0, 0, 0, 0, 0, 0, 0}; // Max 8
+bool isBVMP = false;
 
 // Language & Unit CAN2010 value
 byte languageAndUnitNum = (languageID * 4) + 128;
@@ -956,7 +957,7 @@ void loop() {
           // bitRead(canMsgRcv.data[1], 0); // Fault with LKA (WARNING)
           sendPOPup(bitRead(canMsgRcv.data[2], 7), 4); // Top up engine oil level (WARNING) > 4
           // bitRead(canMsgRcv.data[2], 6); // N/A
-          sendPOPup((bitRead(canMsgRcv.data[2], 5) || bitRead(canMsgRcv.data[2], 4) || bitRead(canMsgRcv.data[2], 3) || bitRead(canMsgRcv.data[2], 2) || bitRead(canMsgRcv.data[2], 0) || bitRead(canMsgRcv.data[3], 7)), 222); // Left hand front door opened (INFO) || Right hand front door opened (INFO) || Left hand rear door opened (INFO)|| Right hand rear door opened (INFO) || Boot open (INFO) || Rear screen open (INFO)
+          sendPOPup((bitRead(canMsgRcv.data[2], 5) || bitRead(canMsgRcv.data[2], 4) || bitRead(canMsgRcv.data[2], 3) || bitRead(canMsgRcv.data[2], 2) || bitRead(canMsgRcv.data[2], 0) || bitRead(canMsgRcv.data[3], 7)), 11); // Left hand front door opened (INFO) || Right hand front door opened (INFO) || Left hand rear door opened (INFO)|| Right hand rear door opened (INFO) || Boot open (INFO) || Rear screen open (INFO)
           // bitRead(canMsgRcv.data[2], 1); // N/A
           sendPOPup(bitRead(canMsgRcv.data[3], 6), 107); // ESP/ASR system fault, repair the vehicle (WARNING)
           // bitRead(canMsgRcv.data[3], 5); // Battery charge fault, stop the vehicle (WARNING)
@@ -977,8 +978,8 @@ void loop() {
           // bitRead(canMsgRcv.data[5], 6); // Preheating deactivated, fuel level too low (INFO)
           // bitRead(canMsgRcv.data[5], 5); // Check the centre brake lamp (WARNING)
           // bitRead(canMsgRcv.data[5], 4); // Retractable roof mechanism fault (WARNING)
-          sendPOPup(bitRead(canMsgRcv.data[5], 3), 131); // Steering lock fault, repair the vehicle (WARNING)
-          // bitRead(canMsgRcv.data[5], 2); // Electronic immobiliser fault (WARNING)
+          // sendPOPup(bitRead(canMsgRcv.data[5], 3), ?); // Steering lock fault, repair the vehicle (WARNING)
+          sendPOPup(bitRead(canMsgRcv.data[5], 2), 131); // Electronic immobiliser fault (WARNING)
           // bitRead(canMsgRcv.data[5], 1); // N/A
           // bitRead(canMsgRcv.data[5], 0); // Roof operation not possible, system temperature too high (WARNING)
           // bitRead(canMsgRcv.data[6], 7); // Roof operation not possible, start the engine (WARNING)
@@ -1004,30 +1005,14 @@ void loop() {
           // bitRead(canMsgRcv.data[1], 7); // N/A
           // bitRead(canMsgRcv.data[1], 6); // Electric mode not available : Particle filter regenerating (INFO)
           // bitRead(canMsgRcv.data[1], 5); // N/A
-          // bitRead(canMsgRcv.data[1], 4); // Puncture: Replace or repair the wheel (STOP)
-          // bitRead(canMsgRcv.data[1], 3); // Puncture: Replace or repair the wheel (STOP)
-          // bitRead(canMsgRcv.data[1], 2); // Puncture: Replace or repair the wheel (STOP)
-          // bitRead(canMsgRcv.data[1], 1); // Puncture: Replace or repair the wheel (STOP)
-          // bitRead(canMsgRcv.data[1], 0); // Check sidelamps (WARNING)
-          // bitRead(canMsgRcv.data[2], 7); // Check sidelamps (WARNING)
-          // bitRead(canMsgRcv.data[2], 6); // Check sidelamps (WARNING)
-          // bitRead(canMsgRcv.data[2], 5); // Check sidelamps (WARNING)
-          // bitRead(canMsgRcv.data[2], 4); // Check the dipped beam headlamps (WARNING)
-          // bitRead(canMsgRcv.data[2], 3); // Check the dipped beam headlamps (WARNING)
-          // bitRead(canMsgRcv.data[2], 2); // Check the main beam headlamps (WARNING)
-          // bitRead(canMsgRcv.data[2], 1); // Check the main beam headlamps (WARNING)
-          // bitRead(canMsgRcv.data[2], 0); // Check the RH brake lamp (WARNING)
-          // bitRead(canMsgRcv.data[3], 7); // Check the LH brake lamp (WARNING)
-          // bitRead(canMsgRcv.data[3], 6); // Check the front foglamps (WARNING)
-          // bitRead(canMsgRcv.data[3], 5); // Check the front foglamps (WARNING)
-          // bitRead(canMsgRcv.data[3], 4); // Check the rear foglamps (WARNING)
-          // bitRead(canMsgRcv.data[3], 3); // Check the rear foglamps (WARNING)
-          // bitRead(canMsgRcv.data[3], 2); // Check the direction indicators (WARNING)
-          // bitRead(canMsgRcv.data[3], 1); // Check the direction indicators (WARNING)
-          // bitRead(canMsgRcv.data[3], 0); // Check the direction indicators (WARNING)
-          // bitRead(canMsgRcv.data[4], 7); // Check the direction indicators (WARNING)
-          // bitRead(canMsgRcv.data[4], 6); // Check the reversing lamp(s) (WARNING)
-          // bitRead(canMsgRcv.data[4], 5); // Check the reversing lamp(s) (WARNING)
+          sendPOPup((bitRead(canMsgRcv.data[1], 4) || bitRead(canMsgRcv.data[1], 3) || bitRead(canMsgRcv.data[1], 2) || bitRead(canMsgRcv.data[1], 1)), 13); // Puncture: Replace or repair the wheel (STOP)
+          sendPOPup((bitRead(canMsgRcv.data[1], 0) || bitRead(canMsgRcv.data[2], 7) || bitRead(canMsgRcv.data[2], 6) || bitRead(canMsgRcv.data[2], 5)), 160); // Check sidelamps (WARNING)
+          sendPOPup((bitRead(canMsgRcv.data[2], 4) || bitRead(canMsgRcv.data[2], 3)), 154); // Check the dipped beam headlamps (WARNING)
+          sendPOPup((bitRead(canMsgRcv.data[2], 2) || bitRead(canMsgRcv.data[2], 1)), 155); // Check the main beam headlamps (WARNING)
+          sendPOPup((bitRead(canMsgRcv.data[2], 0) || bitRead(canMsgRcv.data[3], 7)), 156); // Check the RH brake lamp (WARNING) || Check the LH brake lamp (WARNING)
+          sendPOPup((bitRead(canMsgRcv.data[3], 6) || bitRead(canMsgRcv.data[3], 5) || bitRead(canMsgRcv.data[3], 4) || bitRead(canMsgRcv.data[3], 3)), 157); // Check the front foglamps (WARNING) || Check the front foglamps (WARNING) || Check the rear foglamps (WARNING) || Check the rear foglamps (WARNING)
+          sendPOPup((bitRead(canMsgRcv.data[3], 2) || bitRead(canMsgRcv.data[3], 1) || bitRead(canMsgRcv.data[3], 0) || bitRead(canMsgRcv.data[4], 7)), 159); // Check the direction indicators (WARNING)
+          sendPOPup((bitRead(canMsgRcv.data[4], 6) || bitRead(canMsgRcv.data[4], 5)), 159); // Check the reversing lamp(s) (WARNING)
           // bitRead(canMsgRcv.data[4], 4); // N/A
           // bitRead(canMsgRcv.data[4], 3); // N/A
           // bitRead(canMsgRcv.data[4], 2); // N/A
@@ -1054,7 +1039,7 @@ void loop() {
         
         // Bloc 3
         if (bitRead(canMsgRcv.data[0], 7) == 1 && bitRead(canMsgRcv.data[0], 6) == 1) {
-          sendPOPup((bitRead(canMsgRcv.data[1], 7) || bitRead(canMsgRcv.data[1], 5)), 222); // Boot open (INFO) || Rear Screen open (INFO)
+          // sendPOPup((bitRead(canMsgRcv.data[1], 7) || bitRead(canMsgRcv.data[1], 5)), ?); // Boot open (INFO) || Rear Screen open (INFO)
           // bitRead(canMsgRcv.data[1], 6); // Collision detection risk system fault (INFO)
           // bitRead(canMsgRcv.data[1], 4); // N/A
           // bitRead(canMsgRcv.data[1], 3); // N/A
@@ -1074,7 +1059,11 @@ void loop() {
           // bitRead(canMsgRcv.data[3], 5); // N/A
           // bitRead(canMsgRcv.data[3], 4); // N/A
           // bitRead(canMsgRcv.data[3], 3); // N/A
-          // bitRead(canMsgRcv.data[3], 2); // Gearbox fault (WARNING) > 122 (BVMP) / 110 (BVA)
+          if (isBVMP) {
+            sendPOPup(bitRead(canMsgRcv.data[3], 2), 122); // Gearbox fault (WARNING)
+          } else {
+            sendPOPup(bitRead(canMsgRcv.data[3], 2), 110); // Gearbox fault (WARNING)
+          }
           // bitRead(canMsgRcv.data[3], 1); // N/A
           // bitRead(canMsgRcv.data[3], 0); // N/A
           // bitRead(canMsgRcv.data[4], 7); // N/A
@@ -1149,6 +1138,7 @@ void loop() {
         bitWrite(canMsgSnd.data[2], 3, bitRead(canMsgRcv.data[7], 3)); // Arrow type
         bitWrite(canMsgSnd.data[2], 2, bitRead(canMsgRcv.data[7], 2)); // Arrow type
         if (bitRead(canMsgRcv.data[7], 1) == 1 && bitRead(canMsgRcv.data[7], 0) == 0) { // BVMP to BVA
+          isBVMP = true;
           bitWrite(canMsgSnd.data[2], 1, 0); // Gearbox type
           bitWrite(canMsgSnd.data[2], 0, 0); // Gearbox type
         } else {
