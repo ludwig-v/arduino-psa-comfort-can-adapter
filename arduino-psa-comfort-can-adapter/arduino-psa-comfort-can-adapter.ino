@@ -1025,7 +1025,7 @@ void loop() {
           bitWrite(statusOpenings, 6, bitRead(canMsgRcv.data[7], 2)); // Front left door
           bitWrite(statusOpenings, 5, bitRead(canMsgRcv.data[7], 1)); // Rear right door
           bitWrite(statusOpenings, 4, bitRead(canMsgRcv.data[7], 0)); // Rear left door
-          sendPOPup((bitRead(canMsgRcv.data[7], 3) || bitRead(canMsgRcv.data[7], 2) || bitRead(canMsgRcv.data[7], 1) || bitRead(canMsgRcv.data[7], 0)), 222, 8, statusOpenings); // Front right door opened (INFO) || Front left door opened (INFO) || Rear right door opened (INFO) || Rear left door opened (INFO)
+          sendPOPup((bitRead(canMsgRcv.data[7], 3) || bitRead(canMsgRcv.data[7], 2) || bitRead(canMsgRcv.data[7], 1) || bitRead(canMsgRcv.data[7], 0) || bitRead(statusOpenings, 3) || bitRead(statusOpenings, 2)), 222, 8, statusOpenings); // Front right door opened (INFO) || Front left door opened (INFO) || Rear right door opened (INFO) || Rear left door opened (INFO)
         }
 
         // Bloc 3
