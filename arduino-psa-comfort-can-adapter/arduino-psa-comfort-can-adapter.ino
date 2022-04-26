@@ -135,6 +135,7 @@ int alertsCache[] = {0, 0, 0, 0, 0, 0, 0, 0}; // Max 8
 byte alertsParametersCache[] = {0, 0, 0, 0, 0, 0, 0, 0}; // Max 8
 bool isBVMP = false;
 byte statusOpenings = 0;
+byte notificationParameters = 0;
 
 // Language & Unit CAN2010 value
 byte languageAndUnitNum = (languageID * 4) + 128;
@@ -932,6 +933,7 @@ void loop() {
           CAN0.sendMessage( & canMsgSnd);
         }
       } else if (id == 0x120 && generatePOPups) { // Alerts journal / Diagnostic > Popup notifications - Work in progress
+        // C5 (X7) Cluster is connected to CAN High Speed, no notifications are sent on CAN Low Speed, let's rebuild alerts from the journal (slighly slower than original alerts)
         // Bloc 1
         if (bitRead(canMsgRcv.data[0], 7) == 0 && bitRead(canMsgRcv.data[0], 6) == 1) {
           sendPOPup(bitRead(canMsgRcv.data[1], 7), 5, 1, 0x00); // Engine oil pressure fault: stop the vehicle (STOP)
@@ -944,7 +946,16 @@ void loop() {
           // bitRead(canMsgRcv.data[1], 0); // Fault with LKA (WARNING)
           sendPOPup(bitRead(canMsgRcv.data[2], 7), 4, 4, 0x00); // Top up engine oil level (WARNING)
           // bitRead(canMsgRcv.data[2], 6); // N/A
-          sendPOPup((bitRead(canMsgRcv.data[2], 5) || bitRead(canMsgRcv.data[2], 4) || bitRead(canMsgRcv.data[2], 3) || bitRead(canMsgRcv.data[2], 2) || bitRead(canMsgRcv.data[2], 0) || bitRead(canMsgRcv.data[3], 7)), 11, 8, 0x00); // Left hand front door opened (INFO) || Right hand front door opened (INFO) || Left hand rear door opened (INFO)|| Right hand rear door opened (INFO) || Boot open (INFO) || Rear screen open (INFO)
+          notificationParameters = 0x00;
+          bitWrite(notificationParameters, 7, bitRead(canMsgRcv.data[2], 5)); // Front right door
+          bitWrite(notificationParameters, 6, bitRead(canMsgRcv.data[2], 4)); // Front left door
+          bitWrite(notificationParameters, 5, bitRead(canMsgRcv.data[2], 3)); // Rear right door
+          bitWrite(notificationParameters, 4, bitRead(canMsgRcv.data[2], 2)); // Rear left door
+          bitWrite(notificationParameters, 3, bitRead(canMsgRcv.data[2], 0)); // Boot open
+          // bitWrite(notificationParameters, 2, ?); // Hood open
+          bitWrite(notificationParameters, 1, bitRead(canMsgRcv.data[3], 7)); // Rear Screen open
+          // bitWrite(notificationParameters, 0, ?); // Fuel door open
+          sendPOPup((bitRead(canMsgRcv.data[2], 5) || bitRead(canMsgRcv.data[2], 4) || bitRead(canMsgRcv.data[2], 3) || bitRead(canMsgRcv.data[2], 2) || bitRead(canMsgRcv.data[2], 0) || bitRead(canMsgRcv.data[3], 7)), 8, 8, notificationParameters); // Left hand front door opened (WARNING) || Right hand front door opened (WARNING) || Left hand rear door opened (WARNING) || Right hand rear door opened (WARNING) || Boot open (WARNING) || Rear screen open (WARNING)
           // bitRead(canMsgRcv.data[2], 1); // N/A
           sendPOPup(bitRead(canMsgRcv.data[3], 6), 107, 2, 0x00); // ESP/ASR system fault, repair the vehicle (WARNING)
           // bitRead(canMsgRcv.data[3], 5); // Battery charge fault, stop the vehicle (WARNING)
@@ -992,14 +1003,46 @@ void loop() {
           // bitRead(canMsgRcv.data[1], 7); // N/A
           // bitRead(canMsgRcv.data[1], 6); // Electric mode not available : Particle filter regenerating (INFO)
           // bitRead(canMsgRcv.data[1], 5); // N/A
-          sendPOPup((bitRead(canMsgRcv.data[1], 4) || bitRead(canMsgRcv.data[1], 3) || bitRead(canMsgRcv.data[1], 2) || bitRead(canMsgRcv.data[1], 1)), 13, 6, 0x00); // Puncture: Replace or repair the wheel (STOP)
-          sendPOPup((bitRead(canMsgRcv.data[1], 0) || bitRead(canMsgRcv.data[2], 7) || bitRead(canMsgRcv.data[2], 6) || bitRead(canMsgRcv.data[2], 5)), 160, 6, 0x00); // Check sidelamps (WARNING)
-          sendPOPup((bitRead(canMsgRcv.data[2], 4) || bitRead(canMsgRcv.data[2], 3)), 154, 6, 0x00); // Check the dipped beam headlamps (WARNING)
-          sendPOPup((bitRead(canMsgRcv.data[2], 2) || bitRead(canMsgRcv.data[2], 1)), 155, 6, 0x00); // Check the main beam headlamps (WARNING)
-          sendPOPup((bitRead(canMsgRcv.data[2], 0) || bitRead(canMsgRcv.data[3], 7)), 156, 6, 0x00); // Check the RH brake lamp (WARNING) || Check the LH brake lamp (WARNING)
-          sendPOPup((bitRead(canMsgRcv.data[3], 6) || bitRead(canMsgRcv.data[3], 5) || bitRead(canMsgRcv.data[3], 4) || bitRead(canMsgRcv.data[3], 3)), 157, 6, 0x00); // Check the front foglamps (WARNING) || Check the front foglamps (WARNING) || Check the rear foglamps (WARNING) || Check the rear foglamps (WARNING)
-          sendPOPup((bitRead(canMsgRcv.data[3], 2) || bitRead(canMsgRcv.data[3], 1) || bitRead(canMsgRcv.data[3], 0) || bitRead(canMsgRcv.data[4], 7)), 159, 6, 0x00); // Check the direction indicators (WARNING)
-          sendPOPup((bitRead(canMsgRcv.data[4], 6) || bitRead(canMsgRcv.data[4], 5)), 159, 6, 0x00); // Check the reversing lamp(s) (WARNING)
+          notificationParameters = 0x00;
+          bitWrite(notificationParameters, 7, bitRead(canMsgRcv.data[1], 4)); // Front left tyre
+          bitWrite(notificationParameters, 6, bitRead(canMsgRcv.data[1], 3)); // Front right tyre
+          bitWrite(notificationParameters, 5, bitRead(canMsgRcv.data[1], 2)); // Rear right tyre
+          bitWrite(notificationParameters, 4, bitRead(canMsgRcv.data[1], 1)); // Rear left tyre
+          sendPOPup((bitRead(canMsgRcv.data[1], 4) || bitRead(canMsgRcv.data[1], 3) || bitRead(canMsgRcv.data[1], 2) || bitRead(canMsgRcv.data[1], 1)), 13, 6, notificationParameters); // Puncture: Replace or repair the wheel (STOP)
+          notificationParameters = 0x00;
+          bitWrite(notificationParameters, 7, bitRead(canMsgRcv.data[1], 0)); // Front right sidelamp
+          bitWrite(notificationParameters, 6, bitRead(canMsgRcv.data[2], 7)); // Front left sidelamp
+          bitWrite(notificationParameters, 5, bitRead(canMsgRcv.data[2], 6)); // Rear right sidelamp
+          bitWrite(notificationParameters, 4, bitRead(canMsgRcv.data[2], 5)); // Rear left sidelamp
+          sendPOPup((bitRead(canMsgRcv.data[1], 0) || bitRead(canMsgRcv.data[2], 7) || bitRead(canMsgRcv.data[2], 6) || bitRead(canMsgRcv.data[2], 5)), 160, 6, notificationParameters); // Check sidelamps (WARNING)
+          notificationParameters = 0x00;
+          bitWrite(notificationParameters, 7, bitRead(canMsgRcv.data[2], 4)); // Right dipped beam headlamp
+          bitWrite(notificationParameters, 6, bitRead(canMsgRcv.data[2], 3)); // Left dipped beam headlamp
+          sendPOPup((bitRead(canMsgRcv.data[2], 4) || bitRead(canMsgRcv.data[2], 3)), 154, 6, notificationParameters); // Check the dipped beam headlamps (WARNING)
+          notificationParameters = 0x00;
+          bitWrite(notificationParameters, 7, bitRead(canMsgRcv.data[2], 2)); // Right main beam headlamp
+          bitWrite(notificationParameters, 6, bitRead(canMsgRcv.data[2], 1)); // Left main beam headlamp
+          sendPOPup((bitRead(canMsgRcv.data[2], 2) || bitRead(canMsgRcv.data[2], 1)), 155, 6, notificationParameters); // Check the main beam headlamps (WARNING)
+          notificationParameters = 0x00;
+          bitWrite(notificationParameters, 7, bitRead(canMsgRcv.data[2], 0)); // Right brake lamp
+          bitWrite(notificationParameters, 6, bitRead(canMsgRcv.data[3], 7)); // Left brake lamp
+          sendPOPup((bitRead(canMsgRcv.data[2], 0) || bitRead(canMsgRcv.data[3], 7)), 156, 6, notificationParameters); // Check the RH brake lamp (WARNING) || Check the LH brake lamp (WARNING)
+          notificationParameters = 0x00;
+          bitWrite(notificationParameters, 7, bitRead(canMsgRcv.data[3], 6)); // Front right foglamp
+          bitWrite(notificationParameters, 6, bitRead(canMsgRcv.data[3], 5)); // Front left foglamp
+          bitWrite(notificationParameters, 5, bitRead(canMsgRcv.data[3], 4)); // Rear right foglamp
+          bitWrite(notificationParameters, 4, bitRead(canMsgRcv.data[3], 3)); // Rear left foglamp
+          sendPOPup((bitRead(canMsgRcv.data[3], 6) || bitRead(canMsgRcv.data[3], 5) || bitRead(canMsgRcv.data[3], 4) || bitRead(canMsgRcv.data[3], 3)), 157, 6, notificationParameters); // Check the front foglamps (WARNING) || Check the front foglamps (WARNING) || Check the rear foglamps (WARNING) || Check the rear foglamps (WARNING)
+          notificationParameters = 0x00;
+          bitWrite(notificationParameters, 7, bitRead(canMsgRcv.data[3], 2)); // Front right direction indicator
+          bitWrite(notificationParameters, 6, bitRead(canMsgRcv.data[3], 1)); // Front left direction indicator
+          bitWrite(notificationParameters, 5, bitRead(canMsgRcv.data[3], 0)); // Rear right direction indicator
+          bitWrite(notificationParameters, 4, bitRead(canMsgRcv.data[4], 7)); // Rear left direction indicator
+          sendPOPup((bitRead(canMsgRcv.data[3], 2) || bitRead(canMsgRcv.data[3], 1) || bitRead(canMsgRcv.data[3], 0) || bitRead(canMsgRcv.data[4], 7)), 159, 6, notificationParameters); // Check the direction indicators (WARNING)
+          notificationParameters = 0x00;
+          bitWrite(notificationParameters, 7, bitRead(canMsgRcv.data[4], 6)); // Right reversing lamp
+          bitWrite(notificationParameters, 6, bitRead(canMsgRcv.data[4], 5)); // Left reversing lamp
+          sendPOPup((bitRead(canMsgRcv.data[4], 6) || bitRead(canMsgRcv.data[4], 5)), 159, 6, notificationParameters); // Check the reversing lamp(s) (WARNING)
           // bitRead(canMsgRcv.data[4], 4); // N/A
           // bitRead(canMsgRcv.data[4], 3); // N/A
           // bitRead(canMsgRcv.data[4], 2); // N/A
@@ -1011,11 +1054,16 @@ void loop() {
           sendPOPup(bitRead(canMsgRcv.data[5], 4), 136, 8, 0x00); // Parking assistance system fault (WARNING)
           // bitRead(canMsgRcv.data[5], 3); // N/A
           // bitRead(canMsgRcv.data[5], 2); // N/A
-          sendPOPup((bitRead(canMsgRcv.data[5], 1) || bitRead(canMsgRcv.data[5], 0) || bitRead(canMsgRcv.data[6], 7) || bitRead(canMsgRcv.data[6], 5)), 13, 8, 0x00); // Adjust tyre pressures (WARNING)
+          notificationParameters = 0x00;
+          bitWrite(notificationParameters, 7, bitRead(canMsgRcv.data[5], 1)); // Front left tyre
+          bitWrite(notificationParameters, 6, bitRead(canMsgRcv.data[5], 0)); // Front right tyre
+          bitWrite(notificationParameters, 5, bitRead(canMsgRcv.data[6], 7)); // Rear right tyre
+          bitWrite(notificationParameters, 4, bitRead(canMsgRcv.data[6], 5)); // Rear left tyre
+          sendPOPup((bitRead(canMsgRcv.data[5], 1) || bitRead(canMsgRcv.data[5], 0) || bitRead(canMsgRcv.data[6], 7) || bitRead(canMsgRcv.data[6], 5)), 13, 8, notificationParameters); // Adjust tyre pressures (WARNING)
           // bitRead(canMsgRcv.data[6], 5); // Switch off lighting (INFO)
           // bitRead(canMsgRcv.data[6], 4); // N/A
           sendPOPup((bitRead(canMsgRcv.data[6], 3) || bitRead(canMsgRcv.data[6], 1)), 190, 8, 0x00); // Emissions fault (WARNING)
-          sendPOPup(bitRead(canMsgRcv.data[6], 2), 192, 8, 0x00); // Emissions fault: Starting Prevented (WARNING) > 192
+          sendPOPup(bitRead(canMsgRcv.data[6], 2), 192, 8, 0x00); // Emissions fault: Starting Prevented (WARNING)
           // bitRead(canMsgRcv.data[6], 0); // N/A
           // bitRead(canMsgRcv.data[7], 7); // N/A
           // bitRead(canMsgRcv.data[7], 6); // N/A
@@ -1025,14 +1073,16 @@ void loop() {
           bitWrite(statusOpenings, 6, bitRead(canMsgRcv.data[7], 2)); // Front left door
           bitWrite(statusOpenings, 5, bitRead(canMsgRcv.data[7], 1)); // Rear right door
           bitWrite(statusOpenings, 4, bitRead(canMsgRcv.data[7], 0)); // Rear left door
-          sendPOPup((bitRead(canMsgRcv.data[7], 3) || bitRead(canMsgRcv.data[7], 2) || bitRead(canMsgRcv.data[7], 1) || bitRead(canMsgRcv.data[7], 0) || bitRead(statusOpenings, 3) || bitRead(statusOpenings, 2)), 222, 8, statusOpenings); // Front right door opened (INFO) || Front left door opened (INFO) || Rear right door opened (INFO) || Rear left door opened (INFO)
+          sendPOPup((bitRead(canMsgRcv.data[7], 3) || bitRead(canMsgRcv.data[7], 2) || bitRead(canMsgRcv.data[7], 1) || bitRead(canMsgRcv.data[7], 0) || bitRead(statusOpenings, 3) || bitRead(statusOpenings, 1)), 222, 8, statusOpenings); // Front right door opened (INFO) || Front left door opened (INFO) || Rear right door opened (INFO) || Rear left door opened (INFO)
         }
 
         // Bloc 3
         if (bitRead(canMsgRcv.data[0], 7) == 1 && bitRead(canMsgRcv.data[0], 6) == 1) {
           bitWrite(statusOpenings, 3, bitRead(canMsgRcv.data[1], 7)); // Boot open
-          bitWrite(statusOpenings, 2, bitRead(canMsgRcv.data[1], 5)); // Rear Screen open
-          // sendPOPup((bitRead(canMsgRcv.data[1], 7) || bitRead(canMsgRcv.data[1], 5)), 222, 8, 0x00); // Boot open (INFO) || Rear Screen open (INFO)
+          // bitWrite(statusOpenings, 2, ?); // Hood open
+          bitWrite(statusOpenings, 1, bitRead(canMsgRcv.data[1], 5)); // Rear Screen open
+          // bitWrite(statusOpenings, 0, ?); // Fuel door open
+          sendPOPup((bitRead(canMsgRcv.data[1], 7) || bitRead(canMsgRcv.data[1], 5) ||  bitRead(statusOpenings, 7) ||  bitRead(statusOpenings, 6) ||  bitRead(statusOpenings, 5) ||  bitRead(statusOpenings, 4)), 222, 8, statusOpenings); // Boot open (INFO) || Rear Screen open (INFO)
           // bitRead(canMsgRcv.data[1], 6); // Collision detection risk system fault (INFO)
           // bitRead(canMsgRcv.data[1], 4); // N/A
           // bitRead(canMsgRcv.data[1], 3); // N/A
@@ -1071,7 +1121,12 @@ void loop() {
           // bitRead(canMsgRcv.data[5], 6); // N/A
           // bitRead(canMsgRcv.data[5], 5); // N/A
           // bitRead(canMsgRcv.data[5], 4); // N/A
-          sendPOPup((bitRead(canMsgRcv.data[5], 3) || bitRead(canMsgRcv.data[5], 2) || bitRead(canMsgRcv.data[5], 1) || bitRead(canMsgRcv.data[5], 0)), 229, 10, 0x00); // Sensor fault: Left hand front tyre pressure not monitored (INFO)
+          notificationParameters = 0x00;
+          bitWrite(notificationParameters, 7, bitRead(canMsgRcv.data[5], 3)); // Front left tyre
+          bitWrite(notificationParameters, 6, bitRead(canMsgRcv.data[5], 2)); // Front right tyre
+          bitWrite(notificationParameters, 5, bitRead(canMsgRcv.data[5], 1)); // Rear right tyre
+          bitWrite(notificationParameters, 4, bitRead(canMsgRcv.data[5], 0)); // Rear left tyre
+          sendPOPup((bitRead(canMsgRcv.data[5], 3) || bitRead(canMsgRcv.data[5], 2) || bitRead(canMsgRcv.data[5], 1) || bitRead(canMsgRcv.data[5], 0)), 229, 10, notificationParameters); // Sensor fault: Left hand front tyre pressure not monitored (INFO)
           sendPOPup(bitRead(canMsgRcv.data[6], 7), 18, 4, 0x00); // Suspension fault: repair the vehicle (WARNING)
           sendPOPup(bitRead(canMsgRcv.data[6], 6), 109, 4, 0x00); // Power steering fault: repair the vehicle (WARNING)
           // bitRead(canMsgRcv.data[6], 5); // N/A
@@ -1080,7 +1135,12 @@ void loop() {
           // bitRead(canMsgRcv.data[6], 2); // Engine fault, stop the vehicle (STOP)
           // bitRead(canMsgRcv.data[6], 1); // Fault with LKA (INFO)
           // bitRead(canMsgRcv.data[6], 0); // Tyre under-inflation detection system fault (WARNING)
-          sendPOPup((bitRead(canMsgRcv.data[7], 7) || bitRead(canMsgRcv.data[7], 6) || bitRead(canMsgRcv.data[7], 5)), 183, 8, 0x00); // Underinflated wheel, ajust pressure and reset (INFO)
+          notificationParameters = 0x00;
+          bitWrite(notificationParameters, 7, bitRead(canMsgRcv.data[7], 7)); // Front left tyre
+          bitWrite(notificationParameters, 6, bitRead(canMsgRcv.data[7], 6)); // Front right tyre
+          bitWrite(notificationParameters, 5, bitRead(canMsgRcv.data[7], 5)); // Rear right tyre
+          //bitWrite(notificationParameters, 4, ?); // Rear left tyre
+          sendPOPup((bitRead(canMsgRcv.data[7], 7) || bitRead(canMsgRcv.data[7], 6) || bitRead(canMsgRcv.data[7], 5)), 183, 8, notificationParameters); // Underinflated wheel, ajust pressure and reset (INFO)
           // bitRead(canMsgRcv.data[7], 4); // Spare wheel fitted: driving aids deactivated (INFO)
           // bitRead(canMsgRcv.data[7], 3); // Automatic braking disabled (INFO)
           sendPOPup(bitRead(canMsgRcv.data[7], 2), 188, 6, 0x00); // Refill AdBlue (WARNING)
