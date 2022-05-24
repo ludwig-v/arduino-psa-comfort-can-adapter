@@ -61,7 +61,7 @@ bool mpgMi = false;
 bool kmL = false; // km/L statistics instead of L/100
 bool fixedBrightness = false; // Force Brightness value in case the calibration does not match your brightness value range
 bool noFMUX = false; // If you don't have any useful button on the main panel, turn the SRC button on steering wheel commands into MENU - only works for CAN2010 SMEG / NAC -
-byte steeringWheelCommands_Type = 0; // noFMUX extra setting : 0 = Generic, 1 = C4 I / C5 X7 NAV+MUSIC+APPS+PHONE mapping, 2 = C4 I / C5 X7 MENU mapping, 3 = C4 I / C5 X7 MENU mapping + SRC on wiper command button, 4 = C4 I / C5 X7 MENU mapping + TRIP on wiper command button
+byte steeringWheelCommands_Type = 0; // noFMUX extra setting : 0 = Generic, 1 = C4 I / C5 X7 NAV+MUSIC+APPS+PHONE mapping, 2 = C4 I / C5 X7 MENU mapping, 3 = C4 I / C5 X7 MENU mapping + SRC on wiper command button, 4 = C4 I / C5 X7 MENU mapping + TRIP on wiper command button, 5 = C4 I / C5 X7 MENU mapping + SRC on wiper command button + TRIP on ESC button
 byte languageID = 0; // Default is FR: 0 - EN: 1 / DE: 2 / ES: 3 / IT: 4 / PT: 5 / NL: 6 / BR: 9 / TR: 12 / RU: 14
 bool listenCAN2004Language = false; // Switch language on CAN2010 devices if changed on supported CAN2004 devices, default: no
 byte Time_day = 1; // Default day if the RTC module is not configured
@@ -635,7 +635,7 @@ void loop() {
         if (Send_CAN2010_ForgedMessages) {
           CAN0.sendMessage( & canMsgSnd);
         }
-      } else if (id == 0xA2 && noFMUX && (steeringWheelCommands_Type == 2 || steeringWheelCommands_Type == 3 || steeringWheelCommands_Type == 4)) { // Steering wheel commands - C4 I / C5 X7
+      } else if (id == 0xA2 && noFMUX && (steeringWheelCommands_Type == 2 || steeringWheelCommands_Type == 3 || steeringWheelCommands_Type == 4 || steeringWheelCommands_Type == 5)) { // Steering wheel commands - C4 I / C5 X7
         // Fake FMUX Buttons in the car
         canMsgSnd.data[0] = 0x00;
         canMsgSnd.data[1] = 0x00;
@@ -658,7 +658,7 @@ void loop() {
             canMsgSnd.data[7] = 0x00;
             pushA2 = true;
           }
-        } else if (bitRead(canMsgRcv.data[1], 2) && steeringWheelCommands_Type == 3) { // Right push button / MODE/SRC > SRC
+        } else if (bitRead(canMsgRcv.data[1], 2) && (steeringWheelCommands_Type == 3 || steeringWheelCommands_Type == 5)) { // Right push button / MODE/SRC > SRC
           if (!pushA2) {
             canMsgSnd.data[0] = 0x40;
             canMsgSnd.data[1] = 0x00;
@@ -680,6 +680,11 @@ void loop() {
             canMsgSnd.data[5] = 0x02;
             canMsgSnd.data[6] = 0x00; // Volume potentiometer button
             canMsgSnd.data[7] = 0x00;
+            pushA2 = true;
+          }
+        } else if (bitRead(canMsgRcv.data[1], 4) && steeringWheelCommands_Type == 5) { // ESC button pushed > TRIP
+          if (!pushA2) {
+            pushTRIP = true;
             pushA2 = true;
           }
         } else if (bitRead(canMsgRcv.data[1], 2) && steeringWheelCommands_Type == 4) { // Right push button / MODE/SRC > TRIP
