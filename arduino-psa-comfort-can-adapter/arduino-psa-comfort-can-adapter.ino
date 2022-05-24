@@ -114,6 +114,7 @@ int daysSinceYearStart = 0;
 unsigned long customTimeStamp = 0;
 int vehicleSpeed = 0;
 int engineRPM = 0;
+bool darkMode = false;
 bool resetTrip1 = false;
 bool resetTrip2 = false;
 bool pushAAS = false;
@@ -1596,6 +1597,7 @@ void loop() {
       } else if (id == 0x1A9 && len == 8) { // Telematic commands
         TelematicPresent = true;
 
+        darkMode = bitRead(canMsgRcv.data[0], 7); // Dark mode
         resetTrip1 = bitRead(canMsgRcv.data[0], 1); // Reset Trip 1
         resetTrip2 = bitRead(canMsgRcv.data[0], 0); // Reset Trip 2
         pushAAS = bitRead(canMsgRcv.data[3], 2); // AAS
@@ -1611,6 +1613,7 @@ void loop() {
           bitWrite(canMsgSnd.data[0], 7, resetTrip1); // Reset Trip 1
           bitWrite(canMsgSnd.data[0], 6, resetTrip2); // Reset Trip 2
           canMsgSnd.data[1] = 0x10;
+          bitWrite(canMsgSnd.data[1], 5, darkMode); // Dark mode
           canMsgSnd.data[2] = 0xFF;
           canMsgSnd.data[3] = 0xFF;
           canMsgSnd.data[4] = 0x7F;
