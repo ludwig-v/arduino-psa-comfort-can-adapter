@@ -39,6 +39,11 @@ all copies or substantial portions of the Software.
 #define CAN_SPEED CAN_125KBPS // Entertainment CAN bus - Low speed
 #define CAN_FREQ MCP_16MHZ // Switch to 8MHZ if you have a 8Mhz module
 
+///////////////////////
+// Private functions //
+///////////////////////
+byte checksumm_0E6(const byte* frame);
+
 ////////////////////
 // Initialization //
 ////////////////////
@@ -523,7 +528,7 @@ void loop() {
         canMsgSnd.data[4] = canMsgRcv.data[4]; // Rear right rotations
         canMsgSnd.data[5] = canMsgRcv.data[5]; // Battery Voltage measured by ABS
         canMsgSnd.data[6] = canMsgRcv.data[6]; // STT / Slope / Emergency Braking
-        canMsgSnd.data[7] = 0x00; // Checksum / Counter : WIP
+        canMsgSnd.data[7] = checksumm_0E6(canMsgSnd.data); // Checksum / Counter : Test needed
         canMsgSnd.can_id = 0xE6;
         canMsgSnd.can_dlc = 8;
         CAN1.sendMessage( & canMsgSnd);
@@ -1999,4 +2004,25 @@ int daysSinceYearStartFct() {
 
   doy += day();
   return doy;
+}
+
+byte checksumm_0E6(const byte* frame)
+{
+    /* Autors:
+        organizer of the bacchanal: styleflava
+        algorithm: Ilia
+        code: Pepelxl
+    */
+    static byte iter = 0;
+    byte cursumm = 0;
+    for (byte i = 0; i < 7; i++)
+    {
+        cursumm += (frame[i] >> 4) + (frame[i] & 0x0F);
+    }
+    cursumm += iter;
+    cursumm = ((cursumm ^ 0xFF) - 3) & 0x0F;
+    cursumm ^= iter << 4;
+    iter++;
+    if (iter >= 16) iter = 0;
+    return cursumm;
 }
