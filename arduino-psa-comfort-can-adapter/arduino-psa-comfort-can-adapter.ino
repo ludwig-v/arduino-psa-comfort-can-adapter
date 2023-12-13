@@ -908,7 +908,7 @@ void loop() {
           Ignition = false;
         }
 
-        tmpVal = ceil(canMsgRcv.data[5] / 2.0) - 40; // Temperatures can be negative but we only have 0 > 255, the new range is starting from -40°C
+        tmpVal = (canMsgRcv.data[5] >> 1) - 40; // Temperatures can be negative but we only have 0 > 255, the new range is starting from -40°C
         if (Temperature != tmpVal) {
           Temperature = tmpVal;
 
@@ -1251,22 +1251,24 @@ void loop() {
         }
       } else if (id == 0x3A7 && len == 8) { // Maintenance
         canMsgSnd.data[0] = 0x40;
-        canMsgSnd.data[1] = canMsgRcv.data[5]; // Value x255 +
+        // Values are coded with WORD data type HIGH byte fisrt, LOW byte second
+        canMsgSnd.data[1] = canMsgRcv.data[5]; // Value x256 +
         canMsgSnd.data[2] = canMsgRcv.data[6]; // Value x1 = Number of days till maintenance (FF FF if disabled)
-        canMsgSnd.data[3] = canMsgRcv.data[3]; // Value x5120 +
+        canMsgSnd.data[3] = canMsgRcv.data[3]; // Value x256 * 20 +
         canMsgSnd.data[4] = canMsgRcv.data[4]; // Value x20 = km left till maintenance
         canMsgSnd.can_id = 0x3E7; // New maintenance frame ID
         canMsgSnd.can_dlc = 5;
 
         if (SerialEnabled && !MaintenanceDisplayed) {
+          uint16_t tmpVal = (canMsgRcv.data[3] << 8) | canMsgRcv.data[4];
+          // Not multiply to 20 to avoid overflow
           Serial.print("Next maintenance in: ");
-          if (canMsgRcv.data[3] != 0xFF && canMsgRcv.data[4] != 0xFF) {
-            tmpVal = (canMsgRcv.data[3] * 5120) + (canMsgRcv.data[4] * 20);
+          if (tmpVal != 0xFFFF) {
             Serial.print(tmpVal);
-            Serial.println(" km");
+            Serial.println(" * 20 km");
           }
-          if (canMsgRcv.data[5] != 0xFF && canMsgRcv.data[6] != 0xFF) {
-            tmpVal = (canMsgRcv.data[5] * 255) + canMsgRcv.data[6];
+          tmpVal = (canMsgRcv.data[5] << 8) | canMsgRcv.data[6];
+          if (tmpVal != 0xFFFF) {
             Serial.print(tmpVal);
             Serial.println(" days");
           }
@@ -1738,7 +1740,7 @@ void loop() {
               }
             }
           } else {
-            tmpVal = ceil(tmpVal / 4.0);
+            tmpVal = tmpVal >> 2;
             if (canMsgRcv.data[1] >= 128) {
               tmpVal--;
             }
@@ -1884,25 +1886,25 @@ void loop() {
         // CAN2004 Telematic Range: (-9) "54" > (-7) "57" > ... > "72" (+9) ("63" = 0)
         // CAN2010 Telematic Range: "32" > "88" ("60" = 0)
         tmpVal = canMsgRcv.data[2];
-        canMsgRcv.data[2] = ((tmpVal - 32) / 4) + 57; // Converted value
+        canMsgRcv.data[2] = ((tmpVal - 32) >> 2) + 57; // Converted value
 
         // Treble
         // CAN2004 Telematic Range: (-9) "54" > (-7) "57" > ... > "72" (+9) ("63" = 0)
         // CAN2010 Telematic Range: "32" > "88" ("60" = 0)
         tmpVal = canMsgRcv.data[3];
-        canMsgRcv.data[4] = ((tmpVal - 32) / 4) + 57; // Converted value on position 4 (while it's on 3 on a old amplifier)
+        canMsgRcv.data[4] = ((tmpVal - 32) >> 2) + 57; // Converted value on position 4 (while it's on 3 on a old amplifier)
 
         // Balance - Left / Right
         // CAN2004 Telematic Range: (-9) "54" > (-7) "57" > ... > "72" (+9) ("63" = 0)
         // CAN2010 Telematic Range: "32" > "88" ("60" = 0)
         tmpVal = canMsgRcv.data[1];
-        canMsgRcv.data[1] = ((tmpVal - 32) / 4) + 57; // Converted value
+        canMsgRcv.data[1] = ((tmpVal - 32) >> 2) + 57; // Converted value
 
         // Balance - Front / Back
         // CAN2004 Telematic Range: (-9) "54" > (-7) "57" > ... > "72" (+9) ("63" = 0)
         // CAN2010 Telematic Range: "32" > "88" ("60" = 0)
         tmpVal = canMsgRcv.data[0];
-        canMsgRcv.data[0] = ((tmpVal - 32) / 4) + 57; // Converted value
+        canMsgRcv.data[0] = ((tmpVal - 32) >> 2) + 57; // Converted value
 
         // Mediums ?
         canMsgRcv.data[3] = 63; // 0x3F = 63
