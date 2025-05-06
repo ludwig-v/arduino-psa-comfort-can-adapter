@@ -1536,6 +1536,17 @@ void loop() {
             CAN0.sendMessage( & canMsgSnd);
           }
         }
+          
+        // Intercept 0x321 and reconstruct it with 5 bytes DrumVlado
+        else if (id == 0x321 && len < 5)  { 
+        canMsgSnd.can_id = 0x321;  // Set CAN ID to 0x321
+        canMsgSnd.can_dlc = 5;     // Set length to 5 bytes
+        for (int i = 0; i < 4; i++) {
+        canMsgSnd.data[i] = canMsgRcv.data[i];  // Copy the first 4 bytes from the received message
+        }
+        canMsgSnd.data[4] = 0x00;  // Add the missing byte
+        CAN1.sendMessage(&canMsgSnd);
+          
       } else {
         CAN1.sendMessage( & canMsgRcv);
       }
