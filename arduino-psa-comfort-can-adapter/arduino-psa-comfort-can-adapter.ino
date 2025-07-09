@@ -1359,8 +1359,11 @@ void loop() {
         bitWrite(canMsgSnd.data[3], 0, bitRead(canMsgRcv.data[5], 4)); // DSG - Underinflating (3b)
         canMsgSnd.data[4] = 0x00;
         canMsgSnd.data[5] = 0x00;
+        canMsgSnd.data[6] = 0x00;
+        bitWrite(canMsgSnd.data[6], 5, 1); // Privacy mode
+        canMsgSnd.data[7] = 0x00;
         canMsgSnd.can_id = 0x361;
-        canMsgSnd.can_dlc = 6;
+        canMsgSnd.can_dlc = 8;
         CAN1.sendMessage( & canMsgSnd);
         if (Send_CAN2010_ForgedMessages) {
           CAN0.sendMessage( & canMsgSnd);
